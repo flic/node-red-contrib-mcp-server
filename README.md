@@ -72,6 +72,53 @@ requests whose `Host` header matches the hostname in its `Server URL`. This lets
 virtual host — useful behind a reverse proxy that fronts multiple hostnames for one Node-RED
 backend. Leave it off for a single server, or when a reverse proxy rewrites the `Host` header.
 
+### Reverse proxy
+
+Each `mcp-server` node is its own OAuth resource — unlike a single shared MCP endpoint, every
+instance registers **its own** discovery and registration routes, scoped under its `path`. For
+a node with `path: docker` and `Server URL: https://mcp.example.com`, these six routes must be
+reachable from the MCP client:
+
+| Method & path | Purpose |
+|---|---|
+| `POST /mcp/docker` | The JSON-RPC MCP endpoint (bearer-token protected) |
+| `GET /mcp/docker/.well-known/oauth-protected-resource` | Resource metadata (RFC 9728), path-inserted form |
+| `GET /.well-known/oauth-protected-resource/mcp/docker` | Resource metadata (RFC 9728), RFC 8414 form |
+| `GET /mcp/docker/.well-known/oauth-authorization-server` | Auth-server metadata (RFC 8414), path-inserted form |
+| `GET /.well-known/oauth-authorization-server/mcp/docker` | Auth-server metadata (RFC 8414), RFC 8414 form |
+| `POST /mcp/docker/oauth/register` | Dynamic client registration shim |
+
+Both well-known forms are advertised because different MCP clients probe different ones —
+expose both. Each additional `mcp-server` node (a different `path`) needs its own copy of these
+six routes; a wildcard on the `/mcp/<path>` prefix plus the two RFC 8414 exceptions keeps this
+to three proxy rules per instance. Example, using
+[Caddy](https://caddyserver.com/) via [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy)
+labels:
+
+```yaml
+labels:
+  caddy_1: mcp.example.com
+  caddy_1.reverse_proxy_0: /mcp/docker* "{{upstreams 1880}}"
+  caddy_1.reverse_proxy_1: /.well-known/oauth-protected-resource/mcp/docker "{{upstreams 1880}}"
+  caddy_1.reverse_proxy_2: /.well-known/oauth-authorization-server/mcp/docker "{{upstreams 1880}}"
+```
+
+**What the identity provider needs to support** (same requirements as `lib/mcp-auth.js`):
+
+- An **OIDC provider with discovery** — endpoints are read from
+  `‹issuerUrl›/.well-known/openid-configuration`, falling back to PocketID's path layout if
+  discovery is unavailable.
+- **JWT access tokens** signed with a key published on the provider's **JWKS** (tokens are
+  verified locally; opaque/introspection-only access tokens are not supported).
+- A client configured with the **redirect URI(s)** from the node's *Redirect URIs* setting,
+  grant types `authorization_code` + `refresh_token`, **PKCE (S256)**, and — if a client secret
+  is set — `client_secret_post` auth. Leave the secret empty to run as a public/PKCE client
+  (recommended).
+
+> Tested with **Caddy** (reverse proxy) + **PocketID** (identity provider) + **Claude.ai** (MCP
+> client). Any spec-compliant OIDC provider issuing JWT access tokens, behind any reverse proxy
+> that forwards the routes above, should work the same way.
+
 ## Examples
 
 See [`examples/`](examples/) for nine ready-to-import flows (Jellyfin, Calibre, Docker,

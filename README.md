@@ -76,8 +76,7 @@ backend. Leave it off for a single server, or when a reverse proxy rewrites the 
 
 Each `mcp-server` node is its own OAuth resource — unlike a single shared MCP endpoint, every
 instance registers **its own** discovery and registration routes, scoped under its `path`. For
-a node with `path: docker` and `Server URL: https://mcp.example.com`, these six routes must be
-reachable from the MCP client:
+a node with `path: docker` and `Server URL: https://mcp.example.com`, these six routes exist:
 
 | Method & path | Purpose |
 |---|---|
@@ -89,19 +88,25 @@ reachable from the MCP client:
 | `POST /mcp/docker/oauth/register` | Dynamic client registration shim |
 
 Both well-known forms are advertised because different MCP clients probe different ones —
-expose both. Each additional `mcp-server` node (a different `path`) needs its own copy of these
-six routes; a wildcard on the `/mcp/<path>` prefix plus the two RFC 8414 exceptions keeps this
-to three proxy rules per instance. Example, using
+expose both. Since every instance's routes share the `/mcp/<path>` and `/.well-known/*/mcp/<path>`
+shapes, **one set of wildcard rules covers every current and future `mcp-server` node** (as long
+as they're all reachable through the same domain/upstream) — no reverse-proxy change needed when
+adding a new `path`. Example, using
 [Caddy](https://caddyserver.com/) via [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy)
 labels:
 
 ```yaml
 labels:
   caddy_1: mcp.example.com
-  caddy_1.reverse_proxy_0: /mcp/docker* "{{upstreams 1880}}"
-  caddy_1.reverse_proxy_1: /.well-known/oauth-protected-resource/mcp/docker "{{upstreams 1880}}"
-  caddy_1.reverse_proxy_2: /.well-known/oauth-authorization-server/mcp/docker "{{upstreams 1880}}"
+  caddy_1.reverse_proxy_0: /mcp/* "{{upstreams 1880}}"
+  caddy_1.reverse_proxy_1: /.well-known/oauth-protected-resource/mcp/* "{{upstreams 1880}}"
+  caddy_1.reverse_proxy_2: /.well-known/oauth-authorization-server/mcp/* "{{upstreams 1880}}"
 ```
+
+Node-RED itself 404s any path that isn't an actual registered route, so the wildcard doesn't
+expose anything beyond what each deployed `mcp-server` node already registers. If a `path`
+needs to be reachable on a *different* domain than the others, give it its own `caddy_N` site
+block (or combine with [hostname filtering](#hostname-filtering) above).
 
 **What the identity provider needs to support** (same requirements as `lib/mcp-auth.js`):
 

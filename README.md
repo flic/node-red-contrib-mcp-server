@@ -131,8 +131,10 @@ block (or combine with [hostname filtering](#hostname-filtering) above).
 ## Examples
 
 See [`examples/`](examples/) for nine ready-to-import flows (Jellyfin, Calibre, Docker,
-Music Assistant, Radarr, iRobot/rest980, Overseerr, Sonarr, Spotify) built purely from
-`mcp-in`/`mcp-out` — a good reference for wiring up your own tools.
+Music Assistant, Radarr, iRobot/rest980, Overseerr, Sonarr, Spotify), each with its own
+`mcp-server` node (server description pre-filled, `Server URL`/`Identity provider` left
+blank for you to fill in) and `mcp-in`/`mcp-out` tools — a good reference for wiring up
+your own tools.
 
 ## Development
 

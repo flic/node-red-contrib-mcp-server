@@ -39,11 +39,15 @@ contains `admin`):
 - **General**: name, `path` (→ registers `POST /mcp/<path>`), the public `Server URL` this
   Node-RED instance is reachable at, optional server name/instructions shown to the model, and
   an optional **hostname filter** (see below).
-- **Auth**: an OIDC `Identity provider` issuer URL (endpoints auto-discovered from
-  `/.well-known/openid-configuration`, with PocketID-style fallback paths), client
-  id/secret (leave the secret empty to run as a public/PKCE client — recommended), allowed
-  redirect URIs, scopes, token audience, an optional local debug token that bypasses the
-  IdP entirely for local testing, and a whole-server **required claim/value gate** (see below).
+- **Auth**: an OIDC `Identity provider` issuer URL (**required** — endpoints auto-discovered
+  from `/.well-known/openid-configuration`, with PocketID-style fallback paths; leaving this
+  empty produces a broken OAuth discovery document with relative-path endpoints and no working
+  auth, so the editor won't let you deploy without it), client id/secret (leave the secret
+  empty to run as a public/PKCE client — recommended), **required** redirect URIs (defaults to
+  Claude.ai's callback), scopes, token audience, an optional local debug token that bypasses
+  the IdP entirely for local testing (put any placeholder URL in Identity provider and rely on
+  the debug token — it's never contacted when the debug token matches), and a whole-server
+  **required claim/value gate** (see below, unrelated despite the similar name).
 - **Admin**: enable/disable admin tools, admin token (for the Node-RED Admin API), admin API
   port, and the required claim/value gate that additionally restricts just the admin tools.
 

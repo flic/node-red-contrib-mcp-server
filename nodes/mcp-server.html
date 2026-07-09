@@ -46,7 +46,7 @@
                 <input type="text" id="node-config-input-issuerUrl" placeholder="https://idp.example.com (OIDC issuer URL)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>OIDC issuer base URL. Endpoints are auto-discovered from <code>/.well-known/openid-configuration</code> (falling back to PocketID's path layout). The provider must issue <b>JWT access tokens</b> verifiable via its JWKS. Leave empty to run with only the local debug token below (no real auth — local testing only).</small>
+                <small>OIDC issuer base URL. Endpoints are auto-discovered from <code>/.well-known/openid-configuration</code> (falling back to PocketID's path layout). The provider must issue <b>JWT access tokens</b> verifiable via its JWKS. An empty value here silently breaks the OAuth discovery documents advertised to MCP clients (relative-path endpoints with no host) — so it's required. For local testing without a real IdP, put any placeholder URL here and rely solely on the <b>Local debug token</b> below; it's never contacted when the debug token matches.</small>
             </div>
             <div class="form-row">
                 <label for="node-config-input-clientId" style="width:150px"><i class="fa fa-id-card"></i> Client ID</label>
@@ -168,8 +168,8 @@
             filterHost        : { value: false },
             serverName        : { value: '' },
             instructions      : { value: '' },
-            issuerUrl         : { value: '' },
-            redirectUris      : { value: 'https://claude.ai/api/mcp/auth_callback' },
+            issuerUrl         : { value: '', required: true },
+            redirectUris      : { value: 'https://claude.ai/api/mcp/auth_callback', required: true },
             scopes            : { value: 'openid profile email' },
             audience          : { value: '' },
             tokenCacheTTL     : { value: 300 },

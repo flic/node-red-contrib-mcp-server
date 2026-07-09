@@ -1,0 +1,218 @@
+<script type="text/html" data-template-name="mcp-server">
+    <ul style="min-width: 600px; margin-bottom: 20px;" id="mcpsrv-tabs"></ul>
+    <div id="mcpsrv-tabs-content" style="min-height: calc(100% - 95px);">
+
+        <!-- General tab -->
+        <div id="mcpsrv-tab-general" style="display:none">
+            <div class="form-row">
+                <label for="node-config-input-name"><i class="fa fa-tag"></i> Name</label>
+                <input type="text" id="node-config-input-name" placeholder="My MCP Server">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-path" style="width:150px"><i class="fa fa-link"></i> Path</label>
+                <input type="text" id="node-config-input-path" placeholder="jellyfin" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;" id="mcpsrv-path-hint">
+                <small>Registers endpoint: POST /mcp/&lt;path&gt;</small>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-serverUrl" style="width:150px"><i class="fa fa-globe"></i> Server URL</label>
+                <input type="text" id="node-config-input-serverUrl" placeholder="https://nodered.example.com" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Public base URL this Node-RED instance is reachable at (behind any reverse proxy). Used to build the OAuth discovery URLs advertised to MCP clients.</small>
+            </div>
+            <div class="form-row" style="margin-left:150px;">
+                <input type="checkbox" id="node-config-input-filterHost" style="width:23px; margin:0">
+                <label for="node-config-input-filterHost" style="margin:0; width:auto;"> Only serve requests for this hostname</label>
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Off by default. When on, this node only answers requests whose <code>Host</code> header matches the hostname in the Server URL above — letting several <code>mcp-server</code> nodes share the same path on one Node-RED instance, split by hostname. Leave off for a single server, or when a reverse proxy rewrites the <code>Host</code> header.</small>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-serverName" style="width:150px"><i class="fa fa-server"></i> Server name</label>
+                <input type="text" id="node-config-input-serverName" placeholder="(defaults to mcp-&lt;path&gt;)" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-instructions" style="vertical-align:top; margin-top:4px; width:150px"><i class="fa fa-comment"></i> Instructions</label>
+                <textarea id="node-config-input-instructions" rows="3" style="width:calc(100% - 185px);" placeholder="Optional instructions for the model about this server."></textarea>
+            </div>
+        </div>
+
+        <!-- Auth tab -->
+        <div id="mcpsrv-tab-auth" style="display:none">
+            <div class="form-row">
+                <label for="node-config-input-issuerUrl" style="width:150px"><i class="fa fa-lock"></i> Identity provider</label>
+                <input type="text" id="node-config-input-issuerUrl" placeholder="https://idp.example.com (OIDC issuer URL)" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>OIDC issuer base URL. Endpoints are auto-discovered from <code>/.well-known/openid-configuration</code> (falling back to PocketID's path layout). The provider must issue <b>JWT access tokens</b> verifiable via its JWKS. Leave empty to run with only the local debug token below (no real auth — local testing only).</small>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-clientId" style="width:150px"><i class="fa fa-id-card"></i> Client ID</label>
+                <input type="text" id="node-config-input-clientId" placeholder="Client ID" style="width:calc(100% - 185px)" autocomplete="off">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-clientSecret" style="width:150px"><i class="fa fa-key"></i> Client secret</label>
+                <input type="password" id="node-config-input-clientSecret" placeholder="(empty = public client, recommended)" style="width:calc(100% - 185px)" autocomplete="off">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Leave empty to run as a <b>public client</b> (recommended): configure the identity provider's client as public/PKCE and no secret is ever disclosed. When set, the secret is handed out to any caller of the client-registration endpoint — the redirect-URI allowlist is then the only thing keeping authorization codes away from attackers.</small>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-redirectUris" style="width:150px"><i class="fa fa-mail-forward"></i> Redirect URIs</label>
+                <input type="text" id="node-config-input-redirectUris" placeholder="https://claude.ai/api/mcp/auth_callback" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Allowed MCP-client callback URL(s), space/comma-separated (add more for other clients). Defaults to Claude.ai. These must also be whitelisted on the identity provider's client.</small>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-scopes" style="width:150px"><i class="fa fa-list"></i> OIDC scopes</label>
+                <input type="text" id="node-config-input-scopes" placeholder="openid profile email" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Space-separated list. Add e.g. <code>groups</code> to include group membership in the JWT — requires your identity provider to be configured to send that claim for the scope.</small>
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-audience" style="width:150px"><i class="fa fa-id-badge"></i> Token audience</label>
+                <input type="text" id="node-config-input-audience" placeholder="(defaults to Client ID)" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Defaults to the <b>Client ID</b> when left empty, so tokens issued to other apps at the same identity provider are rejected. Set it explicitly if your provider uses a different audience; the check is skipped only when both fields are empty. The issuer is always verified against the discovered identity provider.</small>
+            </div>
+
+            <hr style="margin:12px 0">
+
+            <div class="form-row">
+                <label for="node-config-input-localDebugToken" style="width:150px"><i class="fa fa-bug"></i> Local debug token</label>
+                <input type="password" id="node-config-input-localDebugToken" placeholder="(optional, skips OAuth locally)" style="width:calc(100% - 185px)" autocomplete="off">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-tokenCacheTTL" style="width:150px"><i class="fa fa-clock-o"></i> Token cache TTL</label>
+                <input type="number" id="node-config-input-tokenCacheTTL" style="width:80px" min="30" value="300"> seconds
+            </div>
+
+            <hr style="margin:12px 0">
+
+            <div class="form-row">
+                <label for="node-config-input-requiredClaim" style="width:150px"><i class="fa fa-user-secret"></i> Required claim</label>
+                <input type="text" id="node-config-input-requiredClaim" placeholder="groups" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-requiredValue" style="width:150px"><i class="fa fa-check"></i> Required value</label>
+                <input type="text" id="node-config-input-requiredValue" placeholder="(empty = any authenticated user)" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Whole-server access gate. The JWT claim (default <code>groups</code>) must contain the value for <b>any</b> of this server's tools to be callable — unauthorized callers connect but see no tools. Leave the value empty (the default) to allow all authenticated users. This is separate from the Admin tab's gate, which additionally restricts only the admin tools.</small>
+            </div>
+        </div>
+
+        <!-- Admin tab -->
+        <div id="mcpsrv-tab-admin" style="display:none">
+            <div class="form-row">
+                <label style="width:150px"><i class="fa fa-terminal"></i> Admin tools</label>
+                <input type="checkbox" id="node-config-input-adminToolsEnabled" style="width:23px; margin:0">
+                <label for="node-config-input-adminToolsEnabled" style="margin:0; width:auto;"> Enable Node-RED admin tools</label>
+            </div>
+            <div id="mcpsrv-admin-details">
+                <div class="form-row">
+                    <label for="node-config-input-adminToken" style="width:150px"><i class="fa fa-shield"></i> Admin token</label>
+                    <input type="password" id="node-config-input-adminToken" placeholder="NODE_RED_ADMIN_TOKEN" style="width:calc(100% - 185px)" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <label for="node-config-input-adminPort" style="width:150px"><i class="fa fa-plug"></i> Admin API port</label>
+                    <input type="number" id="node-config-input-adminPort" style="width:80px" min="1" max="65535" value="1880">
+                </div>
+                <div class="form-row">
+                    <label for="node-config-input-adminRequiredClaim" style="width:150px"><i class="fa fa-user-secret"></i> Required claim</label>
+                    <input type="text" id="node-config-input-adminRequiredClaim" placeholder="groups" style="width:calc(100% - 185px)">
+                </div>
+                <div class="form-row">
+                    <label for="node-config-input-adminRequiredValue" style="width:150px"><i class="fa fa-check"></i> Required value</label>
+                    <input type="text" id="node-config-input-adminRequiredValue" placeholder="admin" style="width:calc(100% - 185px)">
+                </div>
+                <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                    <small>The JWT claim (default <code>groups</code>) must contain the value (default <code>admin</code>) for the admin tools to be callable. Leave the value empty to allow all authenticated users.</small>
+                </div>
+                <div class="form-row" style="background:#fff8e1; border:1px solid #ffe082; border-radius:4px; padding:8px 12px; margin-top:4px;">
+                    <i class="fa fa-info-circle" style="color:#f9a825;"></i>
+                    <span style="font-size:12px; margin-left:6px;">
+                        Enabled admin tools: <strong>get_flow</strong>, <strong>deploy_flow</strong>.<br>
+                        These call the Node-RED admin API on localhost:&lt;port&gt;.
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="mcp-server">
+    <p>Config node hosting a standalone Model Context Protocol (MCP) server. Registers a
+    JSON-RPC endpoint at <code>POST /mcp/&lt;path&gt;</code> plus OAuth discovery/dynamic
+    client registration routes, so MCP clients (e.g. Claude) can authenticate and call the
+    tools defined by any <code>mcp-in</code>/<code>mcp-out</code> pair wired to this node.</p>
+    <p>Multiple <code>mcp-server</code> nodes can coexist — each gets its own path and its
+    own independent auth configuration, so different integrations can be isolated from each
+    other.</p>
+    <p>Enable <b>Admin tools</b> to additionally expose <code>get_flow</code>/<code>deploy_flow</code>,
+    which let an authorized caller read and deploy Node-RED flow tabs via the Admin HTTP API.</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('mcp-server', {
+        category: 'config',
+        defaults: {
+            name              : { value: '' },
+            path              : { value: '', required: true },
+            serverUrl         : { value: '', required: true },
+            filterHost        : { value: false },
+            serverName        : { value: '' },
+            instructions      : { value: '' },
+            issuerUrl         : { value: '' },
+            redirectUris      : { value: 'https://claude.ai/api/mcp/auth_callback' },
+            scopes            : { value: 'openid profile email' },
+            audience          : { value: '' },
+            tokenCacheTTL     : { value: 300 },
+            requiredClaim     : { value: 'groups' },
+            requiredValue     : { value: '' },
+            adminToolsEnabled : { value: false },
+            adminPort         : { value: 1880 },
+            adminRequiredClaim: { value: 'groups' },
+            adminRequiredValue: { value: 'admin' }
+        },
+        credentials: {
+            clientId       : { type: 'text' },
+            clientSecret   : { type: 'password' },
+            adminToken     : { type: 'password' },
+            localDebugToken: { type: 'password' }
+        },
+        label: function () {
+            return this.name || '/mcp/' + (this.path || '?');
+        },
+        oneditprepare: function () {
+            var tabs = RED.tabs.create({
+                id: 'mcpsrv-tabs',
+                onchange: function (tab) {
+                    $('#mcpsrv-tabs-content').children().hide();
+                    $('#' + tab.id).show();
+                }
+            });
+            tabs.addTab({ id: 'mcpsrv-tab-general', label: 'General' });
+            tabs.addTab({ id: 'mcpsrv-tab-auth',    label: 'Auth' });
+            tabs.addTab({ id: 'mcpsrv-tab-admin',   label: 'Admin' });
+
+            function updatePathHint() {
+                var path = $('#node-config-input-path').val() || '<path>';
+                $('#mcpsrv-path-hint small').text('Registers endpoint: POST /mcp/' + path);
+            }
+            $('#node-config-input-path').on('input', updatePathHint);
+            updatePathHint();
+
+            function toggleAdmin() {
+                $('#mcpsrv-admin-details').toggle($('#node-config-input-adminToolsEnabled').is(':checked'));
+            }
+            $('#node-config-input-adminToolsEnabled').on('change', toggleAdmin);
+            toggleAdmin();
+        }
+    });
+</script>

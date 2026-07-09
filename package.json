@@ -1,0 +1,35 @@
+{
+  "name": "@frtnbach/node-red-contrib-mcp-server",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Generic Model Context Protocol (MCP) server nodes for Node-RED: expose flows as MCP tools behind an OAuth-protected endpoint, with optional Node-RED admin (flow read/deploy) tools.",
+  "keywords": [
+    "node-red",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "oauth"
+  ],
+  "author": "Fredrik Furtenbach",
+  "license": "ISC",
+  "scripts": {
+    "test": "mocha \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "node-red": {
+    "version": ">=2.2.0",
+    "nodes": {
+      "mcp-server": "nodes/mcp-server.js",
+      "mcp-in": "nodes/mcp-in.js",
+      "mcp-out": "nodes/mcp-out.js"
+    }
+  },
+  "dependencies": {
+    "jose": "^6.2.3"
+  },
+  "devDependencies": {
+    "mocha": "^10.7.3"
+  }
+}

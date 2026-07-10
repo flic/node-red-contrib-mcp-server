@@ -1,7 +1,6 @@
 {
   "name": "@frtnbach/node-red-contrib-mcp-server",
   "version": "0.3.1",
-  "private": true,
   "description": "Generic Model Context Protocol (MCP) server nodes for Node-RED: expose flows as MCP tools behind an OAuth-protected endpoint, with optional Node-RED admin (flow read/deploy) tools.",
   "keywords": [
     "node-red",
@@ -12,6 +11,24 @@
   ],
   "author": "Fredrik Furtenbach",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flic/node-red-contrib-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/flic/node-red-contrib-mcp-server/issues"
+  },
+  "homepage": "https://github.com/flic/node-red-contrib-mcp-server#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "nodes/",
+    "lib/",
+    "examples/",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "mocha \"test/**/*.test.js\""
   },

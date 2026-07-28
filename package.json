@@ -30,7 +30,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "mocha \"test/**/*.test.js\""
+    "test": "mocha \"test/**/*.test.js\"",
+    "postpublish": "node --env-file=.env scripts/bsky-announce.js",
+    "test:announce": "node --env-file=.env scripts/bsky-announce.js"
   },
   "engines": {
     "node": ">=20.19.0"
@@ -44,6 +46,7 @@
     }
   },
   "dependencies": {
+    "@atproto/api": "^0.20.34",
     "jose": "^6.2.3"
   },
   "devDependencies": {

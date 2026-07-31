@@ -62,6 +62,12 @@ single JWT claim every gate matches against. Every other authorization field is 
 **any-of** list of that claim's values — `media, ops` passes if the claim contains at least one of
 them. An empty list imposes no restriction.
 
+**Nested claims** are addressed with a dotted path, for providers that don't put roles at the top
+level of the token: `realm_access.roles` reads Keycloak's realm roles, and any depth works. A key
+that exists literally always wins, so a claim genuinely named with a dot in it still resolves to
+itself. Only strings and arrays of strings match — pointing the claim at a container object grants
+nothing rather than matching by accident.
+
 | Field | Where | Restricts |
 |---|---|---|
 | `Server access` | mcp-server, Auth tab | every tool on this server |

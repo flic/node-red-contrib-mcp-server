@@ -110,7 +110,7 @@
                 <input type="text" id="node-config-input-requiredValue" placeholder="(empty = any authenticated user)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Whole-server access gate. <b>Access claim</b> names the single JWT claim every gate on this server matches against; everything else is values of that claim. <b>Server access</b> is a comma-separated list of those values — the claim must contain <b>at least one</b> of them for any of this server's tools to be callable, and unauthorized callers connect but see no tools. Leave it empty (the default) to allow all authenticated users. Individual tools can narrow this further with <b>Tool access</b> on their <code>mcp-in</code> node, as can <b>Admin access</b> for the admin tools; the lists are combined with AND. Matching is exact, case-sensitive <b>string</b> comparison — a numeric claim value never matches.</small>
+                <small>Whole-server access gate. <b>Access claim</b> names the single JWT claim every gate on this server matches against; everything else is values of that claim. <b>Server access</b> is a comma-separated list of those values — the claim must contain <b>at least one</b> of them for any of this server's tools to be callable, and unauthorized callers connect but see no tools. Leave it empty (the default) to allow all authenticated users. Individual tools can narrow this further with <b>Tool access</b> on their <code>mcp-in</code> node, as can <b>Admin access</b> for the admin tools; the lists are combined with AND. Matching is exact, case-sensitive <b>string</b> comparison — a numeric claim value never matches. For a provider that nests its roles, address them with a dotted path, e.g. <code>realm_access.roles</code> for Keycloak.</small>
             </div>
         </div>
 
@@ -164,7 +164,8 @@
     <b>Tool access</b> on each <code>mcp-in</code> node, and <b>Admin access</b> (Admin tab). The
     lists are combined with AND, so a tool is reachable only by callers who clear the server's list
     and that tool's own. An empty list imposes no restriction. Tools a caller can't reach are hidden
-    from <code>tools/list</code>.</p>
+    from <code>tools/list</code>. If the identity provider nests its roles, address them with a
+    dotted claim path such as <code>realm_access.roles</code>.</p>
 </script>
 
 <script type="text/javascript">

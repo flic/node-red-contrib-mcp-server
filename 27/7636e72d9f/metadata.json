@@ -1,0 +1,52 @@
+{
+  "cli_version": "0.8.42",
+  "checkpoint_id": "277636e72d9f",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 5,
+  "files_touched": [
+    "README.md",
+    "examples/calibre-mcp.json",
+    "examples/docker-mcp.json",
+    "examples/jellyfin-mcp.json",
+    "examples/music-mcp.json",
+    "examples/radarr-mcp.json",
+    "examples/rest980-mcp.json",
+    "examples/seerr-mcp.json",
+    "examples/sonarr-mcp.json",
+    "examples/spotify-mcp.json",
+    "lib/admin-tools.js",
+    "lib/claim-gate.js",
+    "lib/http-guards.js",
+    "lib/mcp-auth.js",
+    "lib/mcp-rpc.js",
+    "lib/oauth-discovery.js",
+    "nodes/mcp-in.html",
+    "nodes/mcp-in.js",
+    "nodes/mcp-out.html",
+    "nodes/mcp-server.html",
+    "nodes/mcp-server.js",
+    "package-lock.json",
+    "package.json",
+    "test/claim-gate.test.js",
+    "test/mcp-auth.test.js",
+    "test/mcp-rpc.test.js",
+    "test/oauth-discovery.test.js"
+  ],
+  "sessions": [
+    {
+      "metadata": "/27/7636e72d9f/0/metadata.json",
+      "transcript": "/27/7636e72d9f/0/full.jsonl",
+      "compact_transcript": "/27/7636e72d9f/0/transcript.jsonl",
+      "content_hash": "/27/7636e72d9f/0/content_hash.txt",
+      "prompt": "/27/7636e72d9f/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1005,
+    "cache_creation_tokens": 647962,
+    "cache_read_tokens": 15612319,
+    "output_tokens": 113495,
+    "api_call_count": 122
+  }
+}

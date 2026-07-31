@@ -1,0 +1,31 @@
+Vi behöver addera en mer finmaskig behörighetsstruktur. Vi har redan en whole-server access gate, men vi behöver lägga till möjligheten till en per-tool gate också.
+
+---
+
+Vi tar bort required claim även från node-red admin-konfigurationen. Det räcker om servern har ett behörighetsclaim, allt annat är values.
+
+Om ett tool kräver ett specifikt claim value och servern ett annat och användaren bara har toolets claim value, vad händer då? Ska det räcka med att ha ett claim value på ett specifikt tool för att få ansluta till servern eller är det helt separerade gates?
+
+---
+
+Förtydligande: ger server grant access till alla tools på servern, även om ett specifikt tool är konfigurerad med en annan grant value?
+
+---
+
+Vi undviker alla undantag och blir explicita på alla fält. Se till att alla fält kan ta kommaseparerade värden och sen återgår vi till AND. För att få åtkomst till ett specifikt verktyg så krävs det att gruppen ligger med i serverns lista (om inte serverlistan är tom) och på verktygets lista (om inte den är tom). Samma för admin tool, för åtkomst till dom krävs att man tar sig förbi serverns gate och sedan också admintoolets gate.
+
+---
+
+Gör en code review och en arkitektonisk review av det här projektet
+
+---
+
+Kör C1-C8
+
+---
+
+Lista kvarvarande A-punkter
+
+---
+
+Kör enligt din ordning

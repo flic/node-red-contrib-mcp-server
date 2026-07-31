@@ -51,30 +51,30 @@ contains `admin`):
   the IdP entirely for local testing (put any placeholder URL in Identity provider and rely on
   the debug token — it's never contacted when the debug token matches; the `groups` claim the
   debug user gets is configurable so the access gates can be tested locally too), and the
-  whole-server **required claim/value gate** (see below, unrelated despite the similar name).
+  `Access claim` / `Server access` gate (see below).
 - **Admin**: enable/disable admin tools, admin token (for the Node-RED Admin API), admin API
-  port, and the required-value gate that additionally restricts just the admin tools.
+  port, and the `Admin access` gate that additionally restricts just the admin tools.
 
 ### Access control
 
-**One claim name, many value lists.** `Required claim` on the Auth tab (default `groups`) names
-the single JWT claim every gate matches against. Every other authorization field is a
-comma-separated **any-of** list of values — `media, ops` passes if the claim contains at least one
-of them. An empty list imposes no restriction.
+**One claim name, many value lists.** `Access claim` on the Auth tab (default `groups`) names the
+single JWT claim every gate matches against. Every other authorization field is a comma-separated
+**any-of** list of that claim's values — `media, ops` passes if the claim contains at least one of
+them. An empty list imposes no restriction.
 
 | Field | Where | Restricts |
 |---|---|---|
-| `Required value` | mcp-server, Auth tab | every tool on this server |
-| `Required value` | mcp-in | that one tool, additionally |
-| `Required value` | mcp-server, Admin tab | `get_flow`/`deploy_flow`, additionally |
+| `Server access` | mcp-server, Auth tab | every tool on this server |
+| `Tool access` | mcp-in | that one tool, additionally |
+| `Admin access` | mcp-server, Admin tab | `get_flow`/`deploy_flow`, additionally |
 
 **The lists are combined with AND.** Reaching a tool means clearing the server's list *and* that
 tool's own list. Admin tools are not a special case — their field is simply the tool list for
 `get_flow`/`deploy_flow`.
 
 ```
-Required claim: groups     server value: staff
-tool A: (empty)   tool B: media   admin value: admin
+Access claim: groups     Server access: staff
+tool A: (empty)   tool B: media   Admin access: admin
 
 groups=[staff]         → A
 groups=[staff, media]  → A, B
@@ -82,7 +82,7 @@ groups=[staff, admin]  → A + get_flow, deploy_flow
 groups=[media]         → nothing            (server list not cleared)
 groups=[guest]         → nothing
 
-server value empty:
+Server access empty:
 groups=[media]         → A, B
 groups=[guest]         → A
 ```
@@ -94,9 +94,11 @@ explanatory message (not a raw JSON-RPC protocol error), so the reason reaches t
 instead of being collapsed into a generic "tool execution failed".
 
 > **Upgrading:** the admin gate no longer has its own claim-name field — it matches against the
-> Auth tab's `Required claim` like everything else. If you had set a *different* claim name for
+> Auth tab's `Access claim` like everything else. If you had set a *different* claim name for
 > admin tools, move that value to the Auth tab or adjust the admin list accordingly. A value that
-> literally contains a comma is now read as a list rather than one literal string.
+> literally contains a comma is now read as a list rather than one literal string. The gate fields
+> were also relabelled (`Required claim`/`Required value` → `Access claim`/`Server access`/`Admin
+> access`); the underlying settings are unchanged, so existing flows keep working untouched.
 
 ### Protocol
 

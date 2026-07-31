@@ -86,6 +86,15 @@ describe('lib/mcp-auth validateToken', function () {
         assert.strictEqual(state.verifyCalls, 0); // never touched jose
     });
 
+    it('grants the configured groups to the debug token, isolated per request', async function () {
+        const { auth } = build({ localDebugToken: 'dbg-secret', localDebugGroups: ['media', 'staff'] });
+        const claims = await auth.validateToken('dbg-secret');
+        assert.deepStrictEqual(claims.groups, ['media', 'staff']);
+        claims.groups.push('admin'); // a careless flow mutating msg.jwtClaims...
+        const again = await auth.validateToken('dbg-secret');
+        assert.deepStrictEqual(again.groups, ['media', 'staff']); // ...cannot poison later requests
+    });
+
     it('clearCache empties the cache', async function () {
         const { auth } = build();
         await auth.validateToken('good');

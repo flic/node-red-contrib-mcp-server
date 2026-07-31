@@ -46,10 +46,10 @@
     }
   },
   "dependencies": {
-    "@atproto/api": "^0.20.34",
     "jose": "^6.2.3"
   },
   "devDependencies": {
+    "@atproto/api": "^0.20.34",
     "mocha": "^10.7.3"
   }
 }

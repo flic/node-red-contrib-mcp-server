@@ -2,37 +2,11 @@
 
 const assert = require('node:assert');
 const {
-    isAdmin,
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
     filterRedirectUris,
     buildDcrRegistration
 } = require('../lib/oauth-discovery');
-
-describe('lib/oauth-discovery isAdmin', function () {
-    it('allows any authenticated caller when adminValue is empty', function () {
-        assert.strictEqual(isAdmin({ sub: 'x' }, 'groups', ''), true);
-    });
-
-    it('denies when claims are missing entirely', function () {
-        assert.strictEqual(isAdmin(null, 'groups', 'admin'), false);
-        assert.strictEqual(isAdmin(undefined, 'groups', 'admin'), false);
-    });
-
-    it('matches a scalar claim value', function () {
-        assert.strictEqual(isAdmin({ role: 'admin' }, 'role', 'admin'), true);
-        assert.strictEqual(isAdmin({ role: 'user' }, 'role', 'admin'), false);
-    });
-
-    it('matches an array claim value', function () {
-        assert.strictEqual(isAdmin({ groups: ['user', 'admin'] }, 'groups', 'admin'), true);
-        assert.strictEqual(isAdmin({ groups: ['user'] }, 'groups', 'admin'), false);
-    });
-
-    it('denies when the claim is missing from an otherwise valid claims object', function () {
-        assert.strictEqual(isAdmin({ sub: 'x' }, 'groups', 'admin'), false);
-    });
-});
 
 describe('lib/oauth-discovery buildProtectedResourceMetadata', function () {
     it('produces the RFC 9728 shape', function () {

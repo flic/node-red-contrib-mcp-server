@@ -27,6 +27,18 @@
         <label for="node-input-timeout"><i class="fa fa-clock-o"></i> Timeout</label>
         <input type="number" id="node-input-timeout" style="width:80px" min="1" value="30"> seconds
     </div>
+    <hr style="margin:12px 0">
+
+    <div class="form-row">
+        <label for="node-input-requiredValue"><i class="fa fa-check"></i> Required value</label>
+        <input type="text" id="node-input-requiredValue" placeholder="(empty = no extra restriction)" style="width:calc(100% - 105px)">
+    </div>
+    <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
+        <small>Per-tool access gate. Comma-separated list — the caller's claim must contain <b>at least one</b> of these values for this tool to be listed or callable. The claim <em>name</em> is configured once on the MCP Server node (Auth tab, default <code>groups</code>). This applies <b>on top of</b> the server's own list, it does not replace it: callers must clear both.</small>
+    </div>
+
+    <hr style="margin:12px 0">
+
     <div class="form-row">
         <label for="node-input-exposeClaims" style="width:auto"><i class="fa fa-id-card-o"></i> Expose JWT claims</label>
         <input type="checkbox" id="node-input-exposeClaims" style="width:23px; margin:0">
@@ -43,7 +55,11 @@
     flow step.</p>
     <p>The output message carries:</p>
     <ul>
-        <li><code>msg.payload</code> — the tool call arguments, shaped by <b>Parameters</b> below.</li>
+        <li><code>msg.payload</code> — the tool call arguments, shaped by <b>Parameters</b> below.
+        <b>Treat this as untrusted input</b>: the JSON schema documents the shape for the model
+        but nothing enforces it — the caller can send any names, types and values. Validate and
+        escape in the flow before using arguments in shell commands, file paths, URLs or queries
+        (see the example flows' use of <code>encodeURIComponent</code>).</li>
         <li><code>msg._mcpCallId</code> — an opaque id identifying this specific call.</li>
         <li><code>msg.topic</code> — set to the <b>msg.topic</b> field below, or the tool name if left blank.</li>
         <li><code>msg.jwtClaims</code> — the caller's verified JWT claims, only when <b>Expose JWT claims</b> is on.</li>
@@ -62,6 +78,12 @@
     it. <b>Parameters</b> is a JSON-Schema object describing the call arguments (becomes
     <code>msg.payload</code>'s shape). <b>Timeout</b> is how long the flow has to reach an
     <code>mcp-out</code> before the client is told the call timed out.</p>
+    <p><b>Required value</b> gates this one tool. Leave it empty and the tool is reachable by
+    anyone who clears the MCP Server node's own gate; set a comma-separated list and the caller's
+    claim must additionally contain at least one of those values. The claim <em>name</em> is
+    configured once, on the MCP Server node. Callers who don't qualify never see the tool — it is
+    absent from <code>tools/list</code> and from the server's <code>initialize</code> instructions —
+    and a direct call is refused with an explanatory message.</p>
 </script>
 
 <script type="text/javascript">
@@ -69,14 +91,15 @@
         category: 'MCP',
         color: '#b3b3ff',
         defaults  : {
-            name        : { value: '' },
-            mcpServer   : { value: '', type: 'mcp-server', required: true },
-            toolName    : { value: '', required: true },
-            description : { value: '' },
-            inputSchema : { value: '' },
-            topic       : { value: '' },
-            timeout     : { value: 30 },
-            exposeClaims: { value: false }
+            name         : { value: '' },
+            mcpServer    : { value: '', type: 'mcp-server', required: true },
+            toolName     : { value: '', required: true },
+            description  : { value: '' },
+            inputSchema  : { value: '' },
+            topic        : { value: '' },
+            timeout      : { value: 30 },
+            requiredValue: { value: '' },
+            exposeClaims : { value: false }
         },
         inputs    : 0,
         outputs   : 1,

@@ -14,9 +14,12 @@ is a bare building block for turning Node-RED flows into MCP tools that AI assis
   registration shim, so OAuth-aware MCP clients (e.g. Claude.ai) can self-register and
   authenticate. Multiple `mcp-server` nodes can coexist, each with its own path and its own
   independent auth configuration.
-- **`mcp-in`** — defines one MCP tool (name, description, JSON-Schema parameters). When an
-  MCP client calls the tool, the node emits a message carrying the call arguments; wire the
-  rest of the flow to do the actual work.
+- **`mcp-in`** — defines one MCP tool (name, description, JSON-Schema parameters, and an
+  optional per-tool access gate). When an MCP client calls the tool, the node emits a message
+  carrying the call arguments; wire the rest of the flow to do the actual work. The arguments
+  in `msg.payload` are **untrusted caller input** — the JSON schema is documentation for the
+  model, not validation — so the flow must validate and escape them before use in shell
+  commands, file paths, URLs or queries.
 - **`mcp-out`** — resolves a pending tool call. Wire the end of your flow here with
   `msg._mcpCallId` intact (from the originating `mcp-in` message) and `msg.payload` set to
   the result.
@@ -46,27 +49,62 @@ contains `admin`):
   empty to run as a public/PKCE client — recommended), **required** redirect URIs (defaults to
   Claude.ai's callback), scopes, token audience, an optional local debug token that bypasses
   the IdP entirely for local testing (put any placeholder URL in Identity provider and rely on
-  the debug token — it's never contacted when the debug token matches), and a whole-server
-  **required claim/value gate** (see below, unrelated despite the similar name).
+  the debug token — it's never contacted when the debug token matches; the `groups` claim the
+  debug user gets is configurable so the access gates can be tested locally too), and the
+  whole-server **required claim/value gate** (see below, unrelated despite the similar name).
 - **Admin**: enable/disable admin tools, admin token (for the Node-RED Admin API), admin API
-  port, and the required claim/value gate that additionally restricts just the admin tools.
+  port, and the required-value gate that additionally restricts just the admin tools.
 
 ### Access control
 
-Two independent, optional gates:
+**One claim name, many value lists.** `Required claim` on the Auth tab (default `groups`) names
+the single JWT claim every gate matches against. Every other authorization field is a
+comma-separated **any-of** list of values — `media, ops` passes if the claim contains at least one
+of them. An empty list imposes no restriction.
 
-- **Whole-server gate** (Auth tab, `Required claim`/`Required value`): when a value is set, the
-  validated token's claim must contain it for *any* of this server's tools — including admin
-  tools — to be usable. Callers who fail the check still connect (`initialize` succeeds) but see
-  no tools and any `tools/call` is refused with a human-readable reason. Leave the value empty
-  (the default) to allow all authenticated users.
-- **Admin-only gate** (Admin tab): the same shape, but only gates `get_flow`/`deploy_flow` —
-  ordinary tools defined by `mcp-in`/`mcp-out` remain usable by anyone who passes the
-  whole-server gate above.
+| Field | Where | Restricts |
+|---|---|---|
+| `Required value` | mcp-server, Auth tab | every tool on this server |
+| `Required value` | mcp-in | that one tool, additionally |
+| `Required value` | mcp-server, Admin tab | `get_flow`/`deploy_flow`, additionally |
 
-Both denials are returned as an MCP tool result with `isError: true` and an explanatory message
-(not a raw JSON-RPC protocol error), so the reason reaches the calling model instead of being
-collapsed into a generic "tool execution failed".
+**The lists are combined with AND.** Reaching a tool means clearing the server's list *and* that
+tool's own list. Admin tools are not a special case — their field is simply the tool list for
+`get_flow`/`deploy_flow`.
+
+```
+Required claim: groups     server value: staff
+tool A: (empty)   tool B: media   admin value: admin
+
+groups=[staff]         → A
+groups=[staff, media]  → A, B
+groups=[staff, admin]  → A + get_flow, deploy_flow
+groups=[media]         → nothing            (server list not cleared)
+groups=[guest]         → nothing
+
+server value empty:
+groups=[media]         → A, B
+groups=[guest]         → A
+```
+
+Everyone with a valid token still connects — `initialize` always succeeds — but tools a caller
+can't reach are hidden from `tools/list` and from the `initialize` instructions. A direct
+`tools/call` on one of them is refused as an MCP tool result with `isError: true` and an
+explanatory message (not a raw JSON-RPC protocol error), so the reason reaches the calling model
+instead of being collapsed into a generic "tool execution failed".
+
+> **Upgrading:** the admin gate no longer has its own claim-name field — it matches against the
+> Auth tab's `Required claim` like everything else. If you had set a *different* claim name for
+> admin tools, move that value to the Auth tab or adjust the admin list accordingly. A value that
+> literally contains a comma is now read as a list rather than one literal string.
+
+### Protocol
+
+The endpoint speaks MCP protocol version `2024-11-05` over plain HTTP POST — every request is
+one JSON-RPC message, every response one JSON body. `initialize`, `tools/list`, `tools/call` and
+`ping` are supported; there is no SSE/streaming `GET` channel and no server-initiated messages.
+This is the subset today's OAuth-capable MCP clients (e.g. Claude) actually use against a tools-only
+server. The advertised version is intentionally pinned rather than echoing the client's offer.
 
 ### Hostname filtering
 

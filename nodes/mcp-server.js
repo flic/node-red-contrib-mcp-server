@@ -2,11 +2,13 @@ const crypto = require('crypto');
 const http   = require('http');
 const https  = require('https');
 
+const pkgVersion = require('../package.json').version;
+
 const { createMcpAuth }              = require('../lib/mcp-auth');
 const { createHttpGuards, hostFilter } = require('../lib/http-guards');
 const { createAdminTools }           = require('../lib/admin-tools');
+const { handleRpc }                  = require('../lib/mcp-rpc');
 const {
-    isAdmin,
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
     filterRedirectUris,
@@ -37,11 +39,17 @@ function httpGet(url, headers) {
     });
 }
 
-function removeRoute(RED, method, path) {
+// Remove only THIS node's registration for path+method. Several mcp-server nodes may share
+// the same path (hostname filtering), so matching on path alone would let a partial deploy
+// of one node silently strip its siblings' routes too. Ownership is read off the tagged
+// hostFilter middleware each route chain starts with; an untagged or foreign layer is kept.
+function removeRoute(RED, method, path, ownerId) {
     if (!RED.httpNode || !RED.httpNode._router) return;
     RED.httpNode._router.stack = RED.httpNode._router.stack.filter(layer => {
         if (!layer.route) return true;
-        return !(layer.route.path === path && layer.route.methods[method]);
+        if (layer.route.path !== path || !layer.route.methods[method]) return true;
+        return !(layer.route.stack || []).some(l =>
+            l.handle && l.handle._mcpOwner !== undefined && l.handle._mcpOwner === ownerId);
     });
 }
 
@@ -83,23 +91,18 @@ module.exports = function (RED) {
                           '" is not a valid URL — filtering disabled, matching on path only');
             }
         }
+        // One shared hostFilter instance, tagged with this node's id so removeRoute (above)
+        // can tell this node's routes apart from a sibling's on the same path.
+        const ownedHostFilter = hostFilter(expectedHost);
+        ownedHostFilter._mcpOwner = node.id;
 
-        // Optional whole-server claim/value gate — same shape as the admin-tools gate below,
-        // but applies to every tool on this server (dynamic and admin alike). Empty
-        // requiredValue → any authenticated user may use this server's tools (the default).
-        // Set a value to restrict the whole server to callers whose validated token carries
-        // that claim; others connect but see no tools and cannot call any.
+        // The one claim name every gate on this server matches against — the server-wide list
+        // below, each mcp-in node's own list, and the admin-tools list. Everything else is values.
         const requiredClaim = (config.requiredClaim || 'groups').trim();
-        // Default '' (allow all) only when never set. Empty string stays "any authenticated user".
+        // Whole-server gate: a comma-separated any-of list that applies to every tool here.
+        // Default '' (allow all) only when never set. Empty string stays "any authenticated user";
+        // set a list and others still connect, but see no tools and cannot call any.
         const requiredValue = (config.requiredValue === undefined ? '' : config.requiredValue).trim();
-
-        function hasAccess(claims) {
-            if (!requiredValue) return true;
-            if (!claims) return false;
-            const v = claims[requiredClaim];
-            if (Array.isArray(v)) return v.includes(requiredValue);
-            return v === requiredValue;
-        }
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
         const clientId     = ((node.credentials && node.credentials.clientId)     || '').trim();
@@ -113,12 +116,19 @@ module.exports = function (RED) {
         // the client id in `aud`. Only when both are empty is the audience check skipped.
         const tokenAudience = (config.audience || '').trim() || clientId;
 
+        // Groups granted to the local debug token (comma-separated, default 'admin'), so gates
+        // with other values can be tested locally. Default only when never set — an explicitly
+        // emptied field means a debug user with no groups at all.
+        const localDebugGroups = (config.localDebugGroups === undefined ? 'admin' : config.localDebugGroups)
+            .split(',').map(s => s.trim()).filter(Boolean);
+
         const auth = createMcpAuth({
             issuerUrl,
             tokenTTL        : Number(config.tokenCacheTTL || 300) * 1000,
             tokenAudience,
             mcpServerUrl    : resourceUrl,
             localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
+            localDebugGroups,
             httpGet,
             log  : msg => node.log(msg),
             warn : msg => node.warn(msg)
@@ -128,9 +138,10 @@ module.exports = function (RED) {
 
         // ── Admin tools (get_flow / deploy_flow via the Node-RED Admin API) ────────
         const adminToolsEnabled  = config.adminToolsEnabled === true;
-        const adminRequiredClaim = (config.adminRequiredClaim || 'groups').trim();
+        // Matched against requiredClaim above, and applied on top of the whole-server list —
+        // admin tools are gated exactly like any other tool, just with their own value list.
         // Default 'admin' only when never set (undefined). Empty string is respected
-        // as "allow any authenticated user".
+        // as "no restriction beyond the whole-server gate".
         const adminRequiredValue = (config.adminRequiredValue === undefined ? 'admin' : config.adminRequiredValue).trim();
         const adminTools = createAdminTools({
             adminPort     : Number(config.adminPort || 1880),
@@ -138,14 +149,37 @@ module.exports = function (RED) {
         });
 
         // ── Dynamic tool registry (populated by mcp-in / drained by mcp-out) ───────
-        node.mcpRegisteredTools = {};
-        node.mcpPendingCalls    = {};
+        // Null-prototype objects: tool names arrive from remote callers in tools/call, and a
+        // plain {} would resolve names like "__proto__" or "constructor" through the prototype
+        // chain — past the "Unknown tool" check and into a listener-less 30s hang.
+        node.mcpRegisteredTools = Object.create(null);
+        node.mcpPendingCalls    = Object.create(null);
 
-        node.registerMCPTool = function (name, description, schema, timeoutSec) {
-            node.mcpRegisteredTools[name] = { description, schema, timeoutMs: timeoutSec * 1000 };
+        node.registerMCPTool = function (name, description, schema, timeoutSec, requiredValue, ownerId) {
+            // Duplicate tool names are a silent conflict: the registry entry is overwritten but
+            // BOTH mcp-in listeners keep firing, so a single call runs two flows and the first
+            // mcp-out to answer wins. Surface it loudly instead of debugging it in production.
+            const existing = node.mcpRegisteredTools[name];
+            if (existing && existing.ownerId !== ownerId) {
+                node.warn('MCP tool "' + name + '" is registered by more than one mcp-in node on this server — '
+                    + 'each call will run every one of those flows, with unpredictable results. '
+                    + 'Rename the tools so each name is unique.');
+            }
+            node.mcpRegisteredTools[name] = {
+                description,
+                schema,
+                timeoutMs     : timeoutSec * 1000,
+                requiredValue : requiredValue || '',
+                ownerId
+            };
         };
 
-        node.unregisterMCPTool = function (name) {
+        node.unregisterMCPTool = function (name, ownerId) {
+            // Only the registering node may remove its entry — when two mcp-in nodes collide on
+            // a name, deleting the loser must not tear down the survivor's registration.
+            const entry = node.mcpRegisteredTools[name];
+            if (!entry) return;
+            if (ownerId !== undefined && entry.ownerId !== undefined && entry.ownerId !== ownerId) return;
             delete node.mcpRegisteredTools[name];
         };
 
@@ -167,7 +201,7 @@ module.exports = function (RED) {
         };
         for (const p of resourceMetadataPaths) {
             node.log('mcp-server registering route: GET ' + p);
-            RED.httpNode.get(p, hostFilter(expectedHost), rateLimit('wk', 120), protectedResourceHandler);
+            RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), protectedResourceHandler);
         }
 
         // ── OAuth: authorization-server metadata (RFC 8414) ────────────────────────
@@ -180,12 +214,12 @@ module.exports = function (RED) {
         };
         for (const p of authServerPaths) {
             node.log('mcp-server registering route: GET ' + p);
-            RED.httpNode.get(p, hostFilter(expectedHost), rateLimit('wk', 120), authServerHandler);
+            RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), authServerHandler);
         }
 
         // ── DCR shim ────────────────────────────────────────────────────────────
         node.log('mcp-server registering route: POST ' + registerPath);
-        RED.httpNode.post(registerPath, hostFilter(expectedHost), rateLimit('register', 20), (req, res) => {
+        RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), (req, res) => {
             const requested = (req.body && req.body.redirect_uris) || [];
             const filtered  = filterRedirectUris(requested, redirectUris);
             if (!filtered.ok) {
@@ -200,115 +234,39 @@ module.exports = function (RED) {
         });
 
         // ── MCP JSON-RPC endpoint ───────────────────────────────────────────────
+        // The dispatch logic lives in lib/mcp-rpc.js (unit-testable); this handler is glue:
+        // authenticate, delegate, write the described response. callTool is the one real
+        // side effect — the pending-call promise resolved by mcp-out via resolveMCPCall.
+        const rpcDeps = {
+            serverName,
+            serverVersion : pkgVersion,
+            instructions,
+            requiredClaim,
+            requiredValue,
+            adminToolsEnabled,
+            adminRequiredValue,
+            adminTools,
+            tools  : node.mcpRegisteredTools,
+            status : s => node.status(s),
+            callTool: (toolName, timeoutMs, args, claims) => new Promise((resolve, reject) => {
+                const callId = crypto.randomBytes(16).toString('hex');
+                const timer  = setTimeout(() => {
+                    delete node.mcpPendingCalls[callId];
+                    reject(new Error('timeout'));
+                }, timeoutMs);
+                node.mcpPendingCalls[callId] = { resolve, reject, timer };
+                node.emit('mcp_tool_' + toolName, { args, _mcpCallId: callId, _mcpClaims: claims });
+            })
+        };
+
         node.log('mcp-server registering route: POST ' + mcpRoutePath);
-        RED.httpNode.post(mcpRoutePath, hostFilter(expectedHost), rateLimit('mcp', 300), maxBody(1024 * 1024), async (req, res) => {
+        RED.httpNode.post(mcpRoutePath, ownedHostFilter, rateLimit('mcp', 300), maxBody(1024 * 1024), async (req, res) => {
             const claims = await requireBearer(req, res);
             if (!claims) return;
-
-            const allowed = hasAccess(claims);
-
-            const body   = req.body || {};
-            const id     = body.id     !== undefined ? body.id : null;
-            const method = body.method || null;
-            const params = body.params || {};
-
-            const respond = result => res.status(200).json({ jsonrpc: '2.0', id, result });
-            const rpcErr  = (c, m)  => res.status(200).json({ jsonrpc: '2.0', id, error: { code: c, message: m } });
-            const toolOk  = text    => respond({ content: [{ type: 'text', text }] });
-            // Denials surfaced as a tool result (isError) rather than a JSON-RPC protocol error —
-            // clients show a result's text to the model, but collapse a protocol error into a
-            // generic "tool execution failed" with no reason.
-            const denied  = text    => respond({ content: [{ type: 'text', text }], isError: true });
-
-            const adminAllowed = allowed && adminToolsEnabled && isAdmin(claims, adminRequiredClaim, adminRequiredValue);
-
-            if (method === 'initialize') {
-                node.status({ fill: 'green', shape: 'dot', text: 'connected' });
-                res.set('Cache-Control', 'no-store');
-                // Don't leak tool names to callers who lack the required claim.
-                const toolNames = allowed ? [
-                    ...Object.keys(node.mcpRegisteredTools),
-                    ...(adminAllowed ? [...adminTools.TOOL_NAMES] : [])
-                ] : [];
-                return respond({
-                    protocolVersion : '2024-11-05',
-                    capabilities    : { tools: {} },
-                    serverInfo      : { name: serverName, version: '1.0.0' },
-                    instructions    : (instructions ? instructions + ' ' : '') +
-                                      (toolNames.length ? 'Available tools: ' + toolNames.join(', ') + '.' : '')
-                });
-            }
-
-            if (method === 'notifications/initialized') {
-                return res.status(204).send('');
-            }
-
-            if (method === 'tools/list') {
-                if (!allowed) return respond({ tools: [] });
-                const tools = [];
-                for (const [name, t] of Object.entries(node.mcpRegisteredTools)) {
-                    const s = t.schema;
-                    const inputSchema = (s && s.type === 'object') ? s : { type: 'object', properties: s || {} };
-                    tools.push({ name, description: t.description, inputSchema });
-                }
-                if (adminAllowed) tools.push(...adminTools.TOOLS);
-                return respond({ tools });
-            }
-
-            if (method === 'tools/call') {
-                if (!allowed) {
-                    return denied('Access denied: your account lacks the required permission to use this server.');
-                }
-                const toolName = params.name;
-                const args     = params.arguments || {};
-                node.status({ fill: 'blue', shape: 'dot', text: toolName });
-
-                if (node.mcpRegisteredTools[toolName]) {
-                    try {
-                        const callId    = crypto.randomBytes(16).toString('hex');
-                        const timeoutMs = node.mcpRegisteredTools[toolName].timeoutMs || 30000;
-                        const result    = await new Promise((resolve, reject) => {
-                            const timer = setTimeout(() => {
-                                delete node.mcpPendingCalls[callId];
-                                reject(new Error('timeout'));
-                            }, timeoutMs);
-                            node.mcpPendingCalls[callId] = { resolve, reject, timer };
-                            node.emit('mcp_tool_' + toolName, { args, _mcpCallId: callId, _mcpClaims: claims });
-                        });
-                        node.status({ fill: 'green', shape: 'dot', text: 'ready' });
-                        return Array.isArray(result)
-                            ? respond({ content: result })
-                            : toolOk(result);
-                    } catch (e) {
-                        node.status({ fill: 'red', shape: 'dot', text: 'timeout' });
-                        return toolOk(JSON.stringify({ error: e.message === 'timeout' ? 'Tool timed out: ' + toolName : e.message }));
-                    }
-                }
-
-                if (adminTools.TOOL_NAMES.has(toolName)) {
-                    if (!adminToolsEnabled) return rpcErr(-32601, 'Unknown tool: ' + toolName);
-                    // Admin tools require a verified admin claim on every call — the
-                    // adminToolsEnabled flag alone is never sufficient to reach them.
-                    if (!claims || !isAdmin(claims, adminRequiredClaim, adminRequiredValue)) {
-                        node.status({ fill: 'red', shape: 'ring', text: 'forbidden' });
-                        return denied('Access denied: the "' + toolName + '" tool requires admin privileges, '
-                            + 'which your token does not have. This is a permission restriction, not a tool error.');
-                    }
-                    try {
-                        const result = await adminTools.callTool(toolName, args);
-                        node.status({ fill: 'green', shape: 'dot', text: 'ready' });
-                        return toolOk(result);
-                    } catch (e) {
-                        if (e.rpcCode) return rpcErr(e.rpcCode, e.message);
-                        node.status({ fill: 'red', shape: 'ring', text: 'admin error' });
-                        return toolOk('Admin call error: ' + e.message);
-                    }
-                }
-
-                return rpcErr(-32601, 'Unknown tool: ' + toolName);
-            }
-
-            return rpcErr(-32601, 'Unknown method: ' + (method || 'null'));
+            const out = await handleRpc(req.body, claims, rpcDeps);
+            if (out.headers) res.set(out.headers);
+            res.status(out.status);
+            return out.body !== undefined ? res.json(out.body) : res.send('');
         });
 
         node.status({ fill: 'green', shape: 'dot', text: mcpRoutePath });
@@ -318,12 +276,12 @@ module.exports = function (RED) {
                 clearTimeout(pending.timer);
                 pending.reject(new Error('MCP server closing'));
             }
-            node.mcpPendingCalls = {};
+            node.mcpPendingCalls = Object.create(null);
             auth.clearCache();
-            for (const p of resourceMetadataPaths) { removeRoute(RED, 'get', p); }
-            for (const p of authServerPaths)       { removeRoute(RED, 'get', p); }
-            removeRoute(RED, 'post', registerPath);
-            removeRoute(RED, 'post', mcpRoutePath);
+            for (const p of resourceMetadataPaths) { removeRoute(RED, 'get', p, node.id); }
+            for (const p of authServerPaths)       { removeRoute(RED, 'get', p, node.id); }
+            removeRoute(RED, 'post', registerPath, node.id);
+            removeRoute(RED, 'post', mcpRoutePath, node.id);
         });
     }
 

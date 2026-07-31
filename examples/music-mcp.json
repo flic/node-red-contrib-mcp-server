@@ -25,7 +25,6 @@
     "requiredValue": "",
     "adminToolsEnabled": false,
     "adminPort": 1880,
-    "adminRequiredClaim": "groups",
     "adminRequiredValue": "admin"
   },
   {

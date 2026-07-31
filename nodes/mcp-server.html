@@ -88,6 +88,13 @@
                 <input type="password" id="node-config-input-localDebugToken" placeholder="(optional, skips OAuth locally)" style="width:calc(100% - 185px)" autocomplete="off">
             </div>
             <div class="form-row">
+                <label for="node-config-input-localDebugGroups" style="width:150px"><i class="fa fa-users"></i> Debug groups</label>
+                <input type="text" id="node-config-input-localDebugGroups" placeholder="admin" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Comma-separated <code>groups</code> claim granted to the debug token's user (default <code>admin</code>), so the access gates below — including per-tool lists on <code>mcp-in</code> nodes — can be exercised locally without a real identity provider.</small>
+            </div>
+            <div class="form-row">
                 <label for="node-config-input-tokenCacheTTL" style="width:150px"><i class="fa fa-clock-o"></i> Token cache TTL</label>
                 <input type="number" id="node-config-input-tokenCacheTTL" style="width:80px" min="30" value="300"> seconds
             </div>
@@ -103,7 +110,7 @@
                 <input type="text" id="node-config-input-requiredValue" placeholder="(empty = any authenticated user)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Whole-server access gate. The JWT claim (default <code>groups</code>) must contain the value for <b>any</b> of this server's tools to be callable — unauthorized callers connect but see no tools. Leave the value empty (the default) to allow all authenticated users. This is separate from the Admin tab's gate, which additionally restricts only the admin tools.</small>
+                <small>Whole-server access gate. <b>Required claim</b> names the single JWT claim every gate on this server matches against; everything else is values. <b>Required value</b> is a comma-separated list — the claim must contain <b>at least one</b> of them for any of this server's tools to be callable, and unauthorized callers connect but see no tools. Leave the value empty (the default) to allow all authenticated users. Individual tools can narrow this further with their own list on the <code>mcp-in</code> node, as can the Admin tab for the admin tools; the lists are combined with AND. Matching is exact, case-sensitive <b>string</b> comparison — a numeric claim value never matches.</small>
             </div>
         </div>
 
@@ -124,15 +131,11 @@
                     <input type="number" id="node-config-input-adminPort" style="width:80px" min="1" max="65535" value="1880">
                 </div>
                 <div class="form-row">
-                    <label for="node-config-input-adminRequiredClaim" style="width:150px"><i class="fa fa-user-secret"></i> Required claim</label>
-                    <input type="text" id="node-config-input-adminRequiredClaim" placeholder="groups" style="width:calc(100% - 185px)">
-                </div>
-                <div class="form-row">
                     <label for="node-config-input-adminRequiredValue" style="width:150px"><i class="fa fa-check"></i> Required value</label>
                     <input type="text" id="node-config-input-adminRequiredValue" placeholder="admin" style="width:calc(100% - 185px)">
                 </div>
                 <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                    <small>The JWT claim (default <code>groups</code>) must contain the value (default <code>admin</code>) for the admin tools to be callable. Leave the value empty to allow all authenticated users.</small>
+                    <small>Comma-separated list — the claim named on the <b>Auth</b> tab must contain at least one of these values (default <code>admin</code>) for the admin tools to be callable. Applied <b>on top of</b> the Auth tab's whole-server list: callers must clear both. Leave empty to add no restriction beyond that server-wide gate.</small>
                 </div>
                 <div class="form-row" style="background:#fff8e1; border:1px solid #ffe082; border-radius:4px; padding:8px 12px; margin-top:4px;">
                     <i class="fa fa-info-circle" style="color:#f9a825;"></i>
@@ -156,6 +159,12 @@
     other.</p>
     <p>Enable <b>Admin tools</b> to additionally expose <code>get_flow</code>/<code>deploy_flow</code>,
     which let an authorized caller read and deploy Node-RED flow tabs via the Admin HTTP API.</p>
+    <p>Access control uses one claim name — <b>Required claim</b> on the Auth tab — and a
+    comma-separated any-of value list per gate: one for the whole server (Auth tab), one per tool
+    (on each <code>mcp-in</code> node), and one for the admin tools (Admin tab). The lists are
+    combined with AND, so a tool is reachable only by callers who clear the server's list and that
+    tool's own. An empty list imposes no restriction. Tools a caller can't reach are hidden from
+    <code>tools/list</code>.</p>
 </script>
 
 <script type="text/javascript">
@@ -173,11 +182,11 @@
             scopes            : { value: 'openid profile email' },
             audience          : { value: '' },
             tokenCacheTTL     : { value: 300 },
+            localDebugGroups  : { value: 'admin' },
             requiredClaim     : { value: 'groups' },
             requiredValue     : { value: '' },
             adminToolsEnabled : { value: false },
             adminPort         : { value: 1880 },
-            adminRequiredClaim: { value: 'groups' },
             adminRequiredValue: { value: 'admin' }
         },
         credentials: {

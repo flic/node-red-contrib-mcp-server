@@ -25,7 +25,11 @@
     <ul>
         <li>empty (<code>null</code>/<code>undefined</code>/<code>''</code>/<code>[]</code>) — replaced with
         <b>Empty response</b> below (or <code>msg.emptyMessage</code>, if set, as a per-message override).</li>
-        <li>array — passed through as-is as the MCP <code>content</code> array, e.g. for image/media results.</li>
+        <li>array — passed through as-is as the MCP <code>content</code> array, e.g. for
+        image/media results. Every element must then be a valid MCP content block
+        (<code>{"type":"text","text":...}</code>, <code>{"type":"image",...}</code>, …) — a plain
+        array of values is not wrapped for you and gives the client a confusing protocol error.
+        To return a list as data, send it JSON-stringified instead.</li>
         <li>string — sent as-is.</li>
         <li>object — sent as a JSON string.</li>
     </ul>

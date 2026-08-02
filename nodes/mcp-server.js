@@ -156,6 +156,18 @@ module.exports = function (RED) {
         node.mcpPendingCalls    = Object.create(null);
 
         node.registerMCPTool = function (name, description, schema, timeoutSec, requiredValue, ownerId) {
+            // A dynamic tool with an admin tool's name shadows it — tools/call resolves the
+            // dynamic registry first — and tools/list carries the name twice. The flow does
+            // run, so this is a warning rather than a refusal: renaming is the fix, but an
+            // existing flow that (knowingly or not) shadows must not break on upgrade.
+            if (adminTools.TOOL_NAMES.has(name)) {
+                node.warn('MCP tool "' + name + '" has the same name as a built-in admin tool'
+                    + (adminToolsEnabled
+                        ? ' — this flow shadows it, the admin tool becomes unreachable, and the name '
+                          + 'appears twice in tools/list for admin callers. Rename the tool.'
+                        : '. It works while admin tools are disabled, but will shadow the admin tool '
+                          + 'the day they are enabled. Rename the tool.'));
+            }
             // Duplicate tool names are a silent conflict: the registry entry is overwritten but
             // BOTH mcp-in listeners keep firing, so a single call runs two flows and the first
             // mcp-out to answer wins. Surface it loudly instead of debugging it in production.

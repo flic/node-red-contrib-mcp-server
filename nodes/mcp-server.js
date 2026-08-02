@@ -218,6 +218,11 @@ module.exports = function (RED) {
         }
 
         // ── DCR shim ────────────────────────────────────────────────────────────
+        if (clientSecret) {
+            node.warn('A client secret is configured, so ' + registerPath + ' hands it out to every '
+                + 'caller (legacy confidential-client mode) — the secret is effectively public. '
+                + 'Switch the IdP client to public (PKCE) and clear the secret field.');
+        }
         node.log('mcp-server registering route: POST ' + registerPath);
         RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), (req, res) => {
             const requested = (req.body && req.body.redirect_uris) || [];

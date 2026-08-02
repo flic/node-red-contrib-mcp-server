@@ -168,7 +168,7 @@ module.exports = function (RED) {
             node.mcpRegisteredTools[name] = {
                 description,
                 schema,
-                timeoutMs     : timeoutSec * 1000,
+                timeoutMs     : (timeoutSec || 30) * 1000,   // NaN/0 → default, not an instant timeout
                 requiredValue : requiredValue || '',
                 ownerId
             };

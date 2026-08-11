@@ -11,9 +11,13 @@ const { handleRpc }                  = require('../lib/mcp-rpc');
 const {
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
-    filterRedirectUris,
+    resolveRedirectUris,
     buildDcrRegistration
 } = require('../lib/oauth-discovery');
+
+// Used when a registering client doesn't request any redirect_uris of its own — the DCR
+// response must still carry the field for the authorization-code grant.
+const DEFAULT_REDIRECT_URIS = ['https://claude.ai/api/mcp/auth_callback'];
 
 function httpGet(url, headers) {
     return new Promise((resolve, reject) => {
@@ -106,12 +110,12 @@ module.exports = function (RED) {
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
         const clientId     = ((node.credentials && node.credentials.clientId)     || '').trim();
-        const clientSecret = ((node.credentials && node.credentials.clientSecret) || '').trim();
+        // Read only to warn below — the server always registers clients as public (PKCE);
+        // a secret handed out by the open DCR endpoint could never actually be secret.
+        const storedClientSecret = ((node.credentials && node.credentials.clientSecret) || '').trim();
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
         const scopesStr    = (config.scopes || 'openid profile email').trim();
         const scopesArr    = scopesStr.split(/\s+/).filter(Boolean);
-        const redirectUris = (config.redirectUris || 'https://claude.ai/api/mcp/auth_callback')
-                                .split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
         // Audience enforcement: explicit config.audience wins, otherwise tokens must carry
         // the client id in `aud`. Only when both are empty is the audience check skipped.
         const tokenAudience = (config.audience || '').trim() || clientId;
@@ -220,8 +224,7 @@ module.exports = function (RED) {
         const authServerHandler = async (_req, res) => {
             const oidc = await getOidcConfig();
             res.status(200).json(buildAuthorizationServerMetadata({
-                issuerBase: resourceUrl, oidc, registrationEndpoint,
-                scopes: scopesArr, hasClientSecret: !!clientSecret
+                issuerBase: resourceUrl, oidc, registrationEndpoint, scopes: scopesArr
             }));
         };
         for (const p of authServerPaths) {
@@ -230,23 +233,18 @@ module.exports = function (RED) {
         }
 
         // ── DCR shim ────────────────────────────────────────────────────────────
-        if (clientSecret) {
-            node.warn('A client secret is configured, so ' + registerPath + ' hands it out to every '
-                + 'caller (legacy confidential-client mode) — the secret is effectively public. '
-                + 'Switch the IdP client to public (PKCE) and clear the secret field.');
+        if (storedClientSecret) {
+            node.warn('A stored OAuth client secret is being ignored — this server now always '
+                + 'registers MCP clients as a public client (PKCE). Update the IdP client to '
+                + 'public with PKCE enabled, then open this MCP server\'s config, click Done, '
+                + 'and deploy: that deletes the stored secret and clears this warning.');
         }
         node.log('mcp-server registering route: POST ' + registerPath);
         RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), (req, res) => {
-            const requested = (req.body && req.body.redirect_uris) || [];
-            const filtered  = filterRedirectUris(requested, redirectUris);
-            if (!filtered.ok) {
-                return res.status(400).json({
-                    error: 'invalid_redirect_uri',
-                    error_description: 'requested redirect_uris are not allowed'
-                });
-            }
+            const redirectUris = resolveRedirectUris(
+                req.body && req.body.redirect_uris, DEFAULT_REDIRECT_URIS);
             res.status(201).json(buildDcrRegistration({
-                clientId, clientSecret, redirectUris: filtered.uris, scopeStr: scopesStr
+                clientId, redirectUris, scopeStr: scopesStr
             }));
         });
 

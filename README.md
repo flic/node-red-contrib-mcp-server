@@ -45,9 +45,9 @@ contains `admin`):
 - **Auth**: an OIDC `Identity provider` issuer URL (**required** — endpoints auto-discovered
   from `/.well-known/openid-configuration`, with PocketID-style fallback paths; leaving this
   empty produces a broken OAuth discovery document with relative-path endpoints and no working
-  auth, so the editor won't let you deploy without it), client id/secret (leave the secret
-  empty to run as a public/PKCE client — recommended), **required** redirect URIs (defaults to
-  Claude.ai's callback), scopes, token audience, an optional local debug token that bypasses
+  auth, so the editor won't let you deploy without it), a client id (the IdP client must be
+  **public with PKCE** — client secrets are no longer supported, and redirect URIs are
+  configured and validated at the IdP only), scopes, token audience, an optional local debug token that bypasses
   the IdP entirely for local testing (put any placeholder URL in Identity provider and rely on
   the debug token — it's never contacted when the debug token matches; the `groups` claim the
   debug user gets is configurable so the access gates can be tested locally too), and the
@@ -165,10 +165,15 @@ block (or combine with [hostname filtering](#hostname-filtering) above).
   discovery is unavailable.
 - **JWT access tokens** signed with a key published on the provider's **JWKS** (tokens are
   verified locally; opaque/introspection-only access tokens are not supported).
-- A client configured with the **redirect URI(s)** from the node's *Redirect URIs* setting,
-  grant types `authorization_code` + `refresh_token`, **PKCE (S256)**, and — if a client secret
-  is set — `client_secret_post` auth. Leave the secret empty to run as a public/PKCE client
-  (recommended).
+- A **public client** with **PKCE (S256)**, grant types `authorization_code` +
+  `refresh_token`, and the MCP client's **redirect URI(s)** whitelisted (for Claude.ai:
+  `https://claude.ai/api/mcp/auth_callback`). Redirect URIs are configured and validated at
+  the identity provider only — the node no longer keeps its own allowlist, so IdP wildcard
+  support (e.g. PocketID's) works as-is. Client secrets are no longer supported: the open
+  client-registration endpoint handed any configured secret to every caller, so it could
+  never actually be secret. If a secret is still stored from an earlier version it is
+  ignored with a warning — switch the IdP client to public, then open the node's config,
+  click Done, and deploy to delete the stored secret and clear the warning.
 
 > Tested with **Caddy** (reverse proxy) + **PocketID** (identity provider) + **Claude.ai** (MCP
 > client). Any spec-compliant OIDC provider issuing JWT access tokens, behind any reverse proxy

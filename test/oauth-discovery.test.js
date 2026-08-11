@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const {
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
-    filterRedirectUris,
+    resolveRedirectUris,
     buildDcrRegistration
 } = require('../lib/oauth-discovery');
 
@@ -35,67 +35,57 @@ describe('lib/oauth-discovery buildAuthorizationServerMetadata', function () {
                 jwks_uri: 'https://idp.example.com/jwks'
             },
             registrationEndpoint: 'https://nodered.example.com/mcp/docker/oauth/register',
-            scopes: ['openid'],
-            hasClientSecret: false
+            scopes: ['openid']
         });
         assert.strictEqual(meta.issuer, 'https://nodered.example.com/mcp/docker');
         assert.strictEqual(meta.authorization_endpoint, 'https://idp.example.com/authorize');
         assert.strictEqual(meta.registration_endpoint, 'https://nodered.example.com/mcp/docker/oauth/register');
-        assert.deepStrictEqual(meta.token_endpoint_auth_methods_supported, ['none']);
     });
 
-    it('advertises client_secret_post when a client secret is configured', function () {
+    it('only ever advertises public-client token auth', function () {
         const meta = buildAuthorizationServerMetadata({
             issuerBase: 'https://x', oidc: {}, registrationEndpoint: 'https://x/oauth/register',
-            scopes: [], hasClientSecret: true
+            scopes: []
         });
-        assert.deepStrictEqual(meta.token_endpoint_auth_methods_supported, ['client_secret_post', 'none']);
+        assert.deepStrictEqual(meta.token_endpoint_auth_methods_supported, ['none']);
     });
 });
 
-describe('lib/oauth-discovery filterRedirectUris', function () {
-    const allowed = ['https://claude.ai/api/mcp/auth_callback', 'https://other.example.com/cb'];
+describe('lib/oauth-discovery resolveRedirectUris', function () {
+    const defaults = ['https://claude.ai/api/mcp/auth_callback'];
 
-    it('allows a requested subset of the allowlist', function () {
-        const r = filterRedirectUris(['https://claude.ai/api/mcp/auth_callback'], allowed);
-        assert.strictEqual(r.ok, true);
-        assert.deepStrictEqual(r.uris, ['https://claude.ai/api/mcp/auth_callback']);
+    it('echoes the requested URIs', function () {
+        const uris = resolveRedirectUris(['https://other.example.com/cb'], defaults);
+        assert.deepStrictEqual(uris, ['https://other.example.com/cb']);
     });
 
-    it('rejects when none of the requested URIs are allowed', function () {
-        const r = filterRedirectUris(['https://evil.example.com/cb'], allowed);
-        assert.strictEqual(r.ok, false);
-        assert.deepStrictEqual(r.uris, []);
+    it('falls back to the defaults when no URIs were requested', function () {
+        assert.deepStrictEqual(resolveRedirectUris([], defaults), defaults);
     });
 
-    it('falls back to the full allowlist when no URIs were requested', function () {
-        const r = filterRedirectUris([], allowed);
-        assert.strictEqual(r.ok, true);
-        assert.deepStrictEqual(r.uris, allowed);
+    it('falls back to the defaults when redirect_uris is missing/not an array', function () {
+        assert.deepStrictEqual(resolveRedirectUris(undefined, defaults), defaults);
+        assert.deepStrictEqual(resolveRedirectUris('https://x/cb', defaults), defaults);
     });
 
-    it('falls back to the full allowlist when redirect_uris is missing/not an array', function () {
-        const r = filterRedirectUris(undefined, allowed);
-        assert.strictEqual(r.ok, true);
-        assert.deepStrictEqual(r.uris, allowed);
+    it('drops non-string and empty entries, keeping the rest', function () {
+        const uris = resolveRedirectUris([42, '', '  ', null, 'https://x/cb'], defaults);
+        assert.deepStrictEqual(uris, ['https://x/cb']);
+    });
+
+    it('falls back to the defaults when only invalid entries were requested', function () {
+        assert.deepStrictEqual(resolveRedirectUris([null, ''], defaults), defaults);
     });
 });
 
 describe('lib/oauth-discovery buildDcrRegistration', function () {
-    it('omits client_secret for a public client', function () {
+    it('always registers a public client, never a client_secret', function () {
         const reg = buildDcrRegistration({
-            clientId: 'cid', clientSecret: '', redirectUris: ['https://x/cb'], scopeStr: 'openid profile'
+            clientId: 'cid', redirectUris: ['https://x/cb'], scopeStr: 'openid profile'
         });
         assert.strictEqual(reg.client_id, 'cid');
+        assert.deepStrictEqual(reg.redirect_uris, ['https://x/cb']);
         assert.strictEqual(reg.token_endpoint_auth_method, 'none');
         assert.ok(!('client_secret' in reg));
-    });
-
-    it('includes client_secret for a confidential client', function () {
-        const reg = buildDcrRegistration({
-            clientId: 'cid', clientSecret: 'shh', redirectUris: ['https://x/cb'], scopeStr: 'openid'
-        });
-        assert.strictEqual(reg.client_secret, 'shh');
-        assert.strictEqual(reg.token_endpoint_auth_method, 'client_secret_post');
     });
 });

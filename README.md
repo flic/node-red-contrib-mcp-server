@@ -185,9 +185,9 @@ block (or combine with [hostname filtering](#hostname-filtering) above).
   ignored with a warning — switch the IdP client to public, then open the node's config,
   click Done, and deploy to delete the stored secret and clear the warning.
 
-> Tested with **Caddy** (reverse proxy) + **PocketID** (identity provider) + **Claude.ai** (MCP
-> client). Any spec-compliant OIDC provider issuing JWT access tokens, behind any reverse proxy
-> that forwards the routes above, should work the same way.
+> Tested with **Caddy** (reverse proxy) + **PocketID** (identity provider) + **Claude.ai** and
+> **Hermes** (MCP clients). Any spec-compliant OIDC provider issuing JWT access tokens, behind
+> any reverse proxy that forwards the routes above, should work the same way.
 
 ## Examples
 

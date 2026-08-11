@@ -6,6 +6,16 @@ Node-RED admin (flow read/deploy) tools. No home-automation or other domain coup
 is a bare building block for turning Node-RED flows into MCP tools that AI assistants
 (Claude, etc.) can call.
 
+> **Breaking change in 0.5.0 — public client (PKCE) only.** Client secrets and the
+> node-side redirect URI allowlist are gone: the open client-registration endpoint handed
+> any configured secret to every caller, and redirect URIs are validated by the identity
+> provider at `/authorize` anyway. **Migration:** switch the IdP client to **public with
+> PKCE** (a still-confidential client fails token exchange with `invalid_client`), make
+> sure the MCP client callback URLs are whitelisted at the IdP, and if the node warns
+> about a stored secret, open its config, click **Done**, and deploy to delete it. MCP
+> clients connected before the upgrade may have cached the old registration — remove and
+> re-add the server in the client if sign-in misbehaves.
+
 ## Nodes
 
 - **`mcp-server`** (config node) — hosts a standalone MCP JSON-RPC endpoint at

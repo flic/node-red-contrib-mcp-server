@@ -8,6 +8,7 @@ const { createMcpAuth }              = require('../lib/mcp-auth');
 const { createHttpGuards, hostFilter } = require('../lib/http-guards');
 const { createAdminTools }           = require('../lib/admin-tools');
 const { handleRpc }                  = require('../lib/mcp-rpc');
+const { requiredScopeChallenge }      = require('../lib/claim-gate');
 const {
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
@@ -113,6 +114,12 @@ module.exports = function (RED) {
         // configurable — see tokenScopes. Empty means no constraint, so an install that never
         // fills this in behaves exactly as it did before the field existed.
         const requiredScope = (config.requiredScope || '').trim();
+        // Named in the 401 challenge so a client asks for what the gate requires, and checked
+        // against what this server advertises: a required scope missing from the scopes field is
+        // invisible to any client that falls back to scopes_supported, and the symptom is every
+        // tool hidden with nothing logged. Warned, not silently fixed — the scope also has to
+        // exist at the identity provider and be granted there.
+        const challengeScopes = requiredScopeChallenge([requiredScope]);
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
         const clientId     = ((node.credentials && node.credentials.clientId)     || '').trim();
@@ -122,6 +129,12 @@ module.exports = function (RED) {
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
         const scopesStr    = (config.scopes || 'openid profile email').trim();
         const scopesArr    = scopesStr.split(/\s+/).filter(Boolean);
+        const unadvertised = challengeScopes.split(' ').filter(v => v && !scopesArr.includes(v));
+        if (unadvertised.length) {
+            node.warn('mcp-server required scope not advertised: ' + unadvertised.join(' ') +
+                      ' — add it to Scopes, or clients that do not honour the WWW-Authenticate ' +
+                      'challenge will never request it and every tool will be hidden from them.');
+        }
         // Audience enforcement: explicit config.audience wins, otherwise tokens must carry
         // the client id in `aud`. Only when both are empty is the audience check skipped.
         const tokenAudience = (config.audience || '').trim() || clientId;
@@ -145,6 +158,7 @@ module.exports = function (RED) {
             tokenAudience,
             mcpServerUrl    : resourceUrl,
             resourceUrl,
+            challengeScopes,
             localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
             localDebugGroups,
             httpGet,

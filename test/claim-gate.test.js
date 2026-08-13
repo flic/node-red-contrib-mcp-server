@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert');
-const { readClaim, grants, claimAllows, createToolGate, visibleTools, tokenScopes, scopeAllows } = require('../lib/claim-gate');
+const { readClaim, grants, claimAllows, createToolGate, visibleTools, tokenScopes, scopeAllows, requiredScopeChallenge } = require('../lib/claim-gate');
 
 describe('lib/claim-gate grants', function () {
     it('grants nothing for an empty or absent list', function () {
@@ -257,5 +257,21 @@ describe('claim-gate two axes compose with AND', function () {
         assert.strictEqual(g.allows('ops', 'mcp:read'), true);
         assert.strictEqual(g.allows('ops', 'mcp:write'), false);
         assert.strictEqual(g.allows('admin', 'mcp:read'), false);
+    });
+});
+
+describe('requiredScopeChallenge', function () {
+    it('joins the gate fields into the header\'s space-delimited grammar', function () {
+        assert.strictEqual(requiredScopeChallenge(['read:ha', 'write:ha']), 'read:ha write:ha');
+    });
+
+    it('flattens any-of fields and drops duplicates, keeping configured order', function () {
+        assert.strictEqual(requiredScopeChallenge(['a, b', 'b, c']), 'a b c');
+    });
+
+    it('is empty when nothing is required, so no scope parameter is sent at all', function () {
+        assert.strictEqual(requiredScopeChallenge(['', '']), '');
+        assert.strictEqual(requiredScopeChallenge([]), '');
+        assert.strictEqual(requiredScopeChallenge(undefined), '');
     });
 });

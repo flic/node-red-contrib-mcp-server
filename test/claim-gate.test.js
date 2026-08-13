@@ -206,29 +206,31 @@ describe('lib/claim-gate visibleTools', function () {
 
 describe('claim-gate scope axis', function () {
     it('reads a space-delimited scope string, as OAuth defines it', function () {
-        assert.deepStrictEqual(tokenScopes({ scope: 'openid  mcp:read ' }, 'scope'),
-                               ['openid', 'mcp:read']);
+        assert.deepStrictEqual(tokenScopes({ scope: 'openid  mcp:read ' }), ['openid', 'mcp:read']);
+        assert.deepStrictEqual(tokenScopes({ scope: ['a', 'b'] }), ['a', 'b']);
     });
 
-    it('reads an array, and a differently named claim', function () {
-        assert.deepStrictEqual(tokenScopes({ scope: ['a', 'b'] }, 'scope'), ['a', 'b']);
-        assert.deepStrictEqual(tokenScopes({ scp: 'a b' }, 'scp'), ['a', 'b']);
+    it('falls back to scp only when scope is absent, as Entra and Okta name it', function () {
+        // Deterministic on purpose: the answer never depends on which of two claims looked better.
+        assert.deepStrictEqual(tokenScopes({ scp: ['a', 'b'] }), ['a', 'b']);
+        assert.deepStrictEqual(tokenScopes({ scope: 'a', scp: 'b' }), ['a']);
+        assert.deepStrictEqual(tokenScopes({ scope: 42, scp: 'b' }), []);
     });
 
     it('is empty for a missing or non-string claim', function () {
-        assert.deepStrictEqual(tokenScopes({}, 'scope'), []);
-        assert.deepStrictEqual(tokenScopes({ scope: 42 }, 'scope'), []);
+        assert.deepStrictEqual(tokenScopes({}), []);
+        assert.deepStrictEqual(tokenScopes({ scope: 42 }), []);
     });
 
     it('imposes nothing when the field is empty, and fails closed when it is not', function () {
-        assert.strictEqual(scopeAllows({ scope: 'x' }, 'scope', ''), true);
-        assert.strictEqual(scopeAllows({}, 'scope', ''), true);
-        assert.strictEqual(scopeAllows({}, 'scope', 'mcp:read'), false);
+        assert.strictEqual(scopeAllows({ scope: 'x' }, ''), true);
+        assert.strictEqual(scopeAllows({}, ''), true);
+        assert.strictEqual(scopeAllows({}, 'mcp:read'), false);
     });
 
     it('matches any-of against a comma-separated field', function () {
-        assert.strictEqual(scopeAllows({ scope: 'openid mcp:read' }, 'scope', 'mcp:write, mcp:read'), true);
-        assert.strictEqual(scopeAllows({ scope: 'openid' }, 'scope', 'mcp:write, mcp:read'), false);
+        assert.strictEqual(scopeAllows({ scope: 'openid mcp:read' }, 'mcp:write, mcp:read'), true);
+        assert.strictEqual(scopeAllows({ scope: 'openid' }, 'mcp:write, mcp:read'), false);
     });
 
     it('does not split a group claim on whitespace', function () {
@@ -241,7 +243,7 @@ describe('claim-gate scope axis', function () {
 
 describe('claim-gate two axes compose with AND', function () {
     const gate = (claims, serverValue, serverScope) =>
-        createToolGate({ claims, claimName: 'groups', serverValue, scopeClaim: 'scope', serverScope });
+        createToolGate({ claims, claimName: 'groups', serverValue, serverScope });
 
     it('needs both to pass', function () {
         const claims = { groups: ['ops'], scope: 'mcp:read' };

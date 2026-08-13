@@ -111,7 +111,7 @@ instead of being collapsed into a generic "tool execution failed".
 
 ### The client axis: required scope
 
-The lists above answer *what may this user do*. `Scope claim` and `Required scope` answer a
+The lists above answer *what may this user do*. `Required scope` answers a
 different question — *what was this client authorized to do on the user's behalf* — and the two
 are checked with **AND**.
 
@@ -122,8 +122,8 @@ would write. The client's grant has to bound the user's rights, not be ignored.
 
 The scope claim is read the way OAuth defines it
 ([RFC 6749 §3.3](https://datatracker.ietf.org/doc/html/rfc6749#section-3.3)): a space-delimited
-string, or an array if your provider sends one. Name the claim `scp` for Microsoft Entra. The
-field itself is a comma-separated any-of list. Empty means no constraint, so an install that
+string, or an array if your provider sends one. The claim name is not configurable because it is standardised; `scp` is read as a fallback for
+Microsoft Entra and Okta. The field itself is a comma-separated any-of list. Empty means no constraint, so an install that
 never fills it in is unaffected; a configured scope the token does not carry is refused,
 including when the token has no scope claim at all.
 

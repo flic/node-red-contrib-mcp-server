@@ -12,7 +12,8 @@ const {
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
     resolveRedirectUris,
-    buildDcrRegistration
+    buildDcrRegistration,
+    describeDcrClient
 } = require('../lib/oauth-discovery');
 
 // Used when a registering client doesn't request any redirect_uris of its own — the DCR
@@ -131,6 +132,7 @@ module.exports = function (RED) {
             tokenTTL        : Number(config.tokenCacheTTL || 300) * 1000,
             tokenAudience,
             mcpServerUrl    : resourceUrl,
+            resourceUrl,
             localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
             localDebugGroups,
             httpGet,
@@ -240,7 +242,17 @@ module.exports = function (RED) {
                 + 'and deploy: that deletes the stored secret and clears this warning.');
         }
         node.log('mcp-server registering route: POST ' + registerPath);
-        RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), (req, res) => {
+        RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), async (req, res) => {
+            // DCR is deprecated as of MCP 2026-07-28 and kept only as a fallback, so record
+            // who still needs it. When the IdP advertises CIMD, reaching this route means the
+            // client skipped it in the spec's priority order — i.e. it cannot do CIMD, and it
+            // is the reason this shim still exists. Logged at info: a registration is routine,
+            // and node.warn would republish it into every editor's debug sidebar.
+            const who = describeDcrClient(req.body, req.headers);
+            const oidc = await getOidcConfig().catch(() => ({}));
+            node.log(oidc.client_id_metadata_document_supported === true
+                ? 'MCP DCR fallback (client lacks CIMD): ' + who
+                : 'MCP DCR registration (IdP does not offer CIMD): ' + who);
             const redirectUris = resolveRedirectUris(
                 req.body && req.body.redirect_uris, DEFAULT_REDIRECT_URIS);
             res.status(201).json(buildDcrRegistration({

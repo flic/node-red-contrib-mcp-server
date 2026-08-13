@@ -147,6 +147,12 @@ a node with `path: docker` and `Server URL: https://mcp.example.com`, these six 
 | `GET /.well-known/oauth-authorization-server/mcp/docker` | Auth-server metadata (RFC 8414), RFC 8414 form |
 | `POST /mcp/docker/oauth/register` | Dynamic client registration shim |
 
+**Client ID Metadata Documents (CIMD).** MCP 2026-07-28 deprecates dynamic client registration in favour of [CIMD](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01), where a client's id is the HTTPS URL of a metadata document it hosts itself. This node advertises `client_id_metadata_document_supported` by mirroring what your IdP's discovery document says — it is never configured here, because it is the IdP that resolves the client id, and this server is in no position to promise support the IdP doesn't have. Enable CIMD on the IdP and the metadata follows without a deploy.
+
+Both mechanisms stay available on purpose. Clients pick in the spec's order — pre-registered, then CIMD, then DCR — so a client without CIMD support keeps using the registration shim exactly as before. Each registration is logged (`MCP DCR fallback` when the IdP does advertise CIMD), which is how you find out which clients still need it.
+
+Tokens from a CIMD client carry that document URL as their audience rather than your pre-registered client id, and they are accepted whenever the IdP advertises CIMD. This node keeps no second allowlist of its own, so the IdP's list of accepted metadata documents is the boundary — any CIMD client on it can reach this server, with the claim gate as the remaining check.
+
 Both well-known forms are advertised because different MCP clients probe different ones —
 expose both. Since every instance's routes share the `/mcp/<path>` and `/.well-known/*/mcp/<path>`
 shapes, **one set of wildcard rules covers every current and future `mcp-server` node** (as long

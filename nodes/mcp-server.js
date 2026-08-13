@@ -109,6 +109,11 @@ module.exports = function (RED) {
         // Default '' (allow all) only when never set. Empty string stays "any authenticated user";
         // set a list and others still connect, but see no tools and cannot call any.
         const requiredValue = (config.requiredValue === undefined ? '' : config.requiredValue).trim();
+        // The client axis, independent of the claim axis above. `scope` by convention; Entra
+        // names it `scp`. Empty means no constraint, so an install that never fills this in
+        // behaves exactly as it did before the field existed.
+        const scopeClaim    = (config.scopeClaim || 'scope').trim();
+        const requiredScope = (config.requiredScope || '').trim();
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
         const clientId     = ((node.credentials && node.credentials.clientId)     || '').trim();
@@ -289,6 +294,8 @@ module.exports = function (RED) {
             instructions,
             requiredClaim,
             requiredValue,
+            scopeClaim,
+            requiredScope,
             adminToolsEnabled,
             adminRequiredValue,
             adminTools,

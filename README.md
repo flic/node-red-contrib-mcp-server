@@ -109,6 +109,24 @@ can't reach are hidden from `tools/list` and from the `initialize` instructions.
 explanatory message (not a raw JSON-RPC protocol error), so the reason reaches the calling model
 instead of being collapsed into a generic "tool execution failed".
 
+### The client axis: required scope
+
+The lists above answer *what may this user do*. `Scope claim` and `Required scope` answer a
+different question — *what was this client authorized to do on the user's behalf* — and the two
+are checked with **AND**.
+
+They are not interchangeable. A group says who is at the keyboard; a scope says how much of that
+person's authority was delegated to the software holding the token. Collapse them into one field
+and only one gets consulted: a client granted a read-only scope, driven by someone who may write,
+would write. The client's grant has to bound the user's rights, not be ignored.
+
+The scope claim is read the way OAuth defines it
+([RFC 6749 §3.3](https://datatracker.ietf.org/doc/html/rfc6749#section-3.3)): a space-delimited
+string, or an array if your provider sends one. Name the claim `scp` for Microsoft Entra. The
+field itself is a comma-separated any-of list. Empty means no constraint, so an install that
+never fills it in is unaffected; a configured scope the token does not carry is refused,
+including when the token has no scope claim at all.
+
 > **Upgrading:** the admin gate no longer has its own claim-name field — it matches against the
 > Auth tab's `Access claim` like everything else. If you had set a *different* claim name for
 > admin tools, move that value to the Auth tab or adjust the admin list accordingly. A value that

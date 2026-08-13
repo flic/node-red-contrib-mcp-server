@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert');
-const { readClaim, grants, claimAllows, createToolGate, visibleTools } = require('../lib/claim-gate');
+const { readClaim, grants, claimAllows, createToolGate, visibleTools, tokenScopes, scopeAllows } = require('../lib/claim-gate');
 
 describe('lib/claim-gate grants', function () {
     it('grants nothing for an empty or absent list', function () {
@@ -200,5 +200,60 @@ describe('lib/claim-gate visibleTools', function () {
     it('tolerates an empty registry', function () {
         assert.deepStrictEqual(visibleTools({}, gate({ groups: [] })), []);
         assert.deepStrictEqual(visibleTools(undefined, gate({ groups: [] })), []);
+    });
+});
+
+
+describe('claim-gate scope axis', function () {
+    it('reads a space-delimited scope string, as OAuth defines it', function () {
+        assert.deepStrictEqual(tokenScopes({ scope: 'openid  mcp:read ' }, 'scope'),
+                               ['openid', 'mcp:read']);
+    });
+
+    it('reads an array, and a differently named claim', function () {
+        assert.deepStrictEqual(tokenScopes({ scope: ['a', 'b'] }, 'scope'), ['a', 'b']);
+        assert.deepStrictEqual(tokenScopes({ scp: 'a b' }, 'scp'), ['a', 'b']);
+    });
+
+    it('is empty for a missing or non-string claim', function () {
+        assert.deepStrictEqual(tokenScopes({}, 'scope'), []);
+        assert.deepStrictEqual(tokenScopes({ scope: 42 }, 'scope'), []);
+    });
+
+    it('imposes nothing when the field is empty, and fails closed when it is not', function () {
+        assert.strictEqual(scopeAllows({ scope: 'x' }, 'scope', ''), true);
+        assert.strictEqual(scopeAllows({}, 'scope', ''), true);
+        assert.strictEqual(scopeAllows({}, 'scope', 'mcp:read'), false);
+    });
+
+    it('matches any-of against a comma-separated field', function () {
+        assert.strictEqual(scopeAllows({ scope: 'openid mcp:read' }, 'scope', 'mcp:write, mcp:read'), true);
+        assert.strictEqual(scopeAllows({ scope: 'openid' }, 'scope', 'mcp:write, mcp:read'), false);
+    });
+
+    it('does not split a group claim on whitespace', function () {
+        // The reason scopes got their own matcher: a group name may contain spaces, and the
+        // claim axis must keep comparing it whole.
+        assert.strictEqual(grants({ groups: 'Home Admins' }, 'groups', 'Home Admins'), true);
+        assert.strictEqual(grants({ groups: 'Home Admins' }, 'groups', 'Home'), false);
+    });
+});
+
+describe('claim-gate two axes compose with AND', function () {
+    const gate = (claims, serverValue, serverScope) =>
+        createToolGate({ claims, claimName: 'groups', serverValue, scopeClaim: 'scope', serverScope });
+
+    it('needs both to pass', function () {
+        const claims = { groups: ['ops'], scope: 'mcp:read' };
+        assert.strictEqual(gate(claims, 'ops', 'mcp:read').serverGranted, true);
+        assert.strictEqual(gate(claims, 'ops', 'mcp:write').serverGranted, false);
+        assert.strictEqual(gate(claims, 'admin', 'mcp:read').serverGranted, false);
+    });
+
+    it('applies both to a per-tool list as well', function () {
+        const g = gate({ groups: ['ops'], scope: 'mcp:read' }, 'ops', 'mcp:read');
+        assert.strictEqual(g.allows('ops', 'mcp:read'), true);
+        assert.strictEqual(g.allows('ops', 'mcp:write'), false);
+        assert.strictEqual(g.allows('admin', 'mcp:read'), false);
     });
 });

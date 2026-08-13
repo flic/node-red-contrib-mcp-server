@@ -115,6 +115,18 @@
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
                 <small>Whole-server access gate. <b>Access claim</b> names the single JWT claim every gate on this server matches against; everything else is values of that claim. <b>Server access</b> is a comma-separated list of those values — the claim must contain <b>at least one</b> of them for any of this server's tools to be callable, and unauthorized callers connect but see no tools. Leave it empty (the default) to allow all authenticated users. Individual tools can narrow this further with <b>Tool access</b> on their <code>mcp-in</code> node, as can <b>Admin access</b> for the admin tools; the lists are combined with AND. Matching is exact, case-sensitive <b>string</b> comparison — a numeric claim value never matches. For a provider that nests its roles, address them with a dotted path, e.g. <code>realm_access.roles</code> for Keycloak.</small>
             </div>
+
+            <div class="form-row">
+                <label for="node-config-input-scopeClaim" style="width:150px"><i class="fa fa-key"></i> Scope claim</label>
+                <input type="text" id="node-config-input-scopeClaim" placeholder="scope" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-row">
+                <label for="node-config-input-requiredScope" style="width:150px"><i class="fa fa-check-circle"></i> Required scope</label>
+                <input type="text" id="node-config-input-requiredScope" placeholder="(empty = no scope required)" style="width:calc(100% - 185px)">
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small><b>A second, independent axis.</b> The claim above asks what the <i>user</i> may do; this asks what the <i>client</i> was authorized to do on their behalf. Both must pass, so the client's grant bounds the user's rights rather than being ignored &mdash; a client holding only a read scope cannot act, however privileged the person driving it.<br><br>The claim value is read as OAuth defines it: a space-delimited string, or an array if your provider sends one. Name the claim <code>scp</code> for Microsoft Entra. The field itself is a comma-separated <b>any-of</b> list, like the ones above. Empty means no constraint; a configured scope the token does not carry is refused, including when the token has no scope claim at all.</small>
+            </div>
         </div>
 
         <!-- Admin tab -->
@@ -189,6 +201,8 @@
             localDebugGroups  : { value: 'admin' },
             requiredClaim     : { value: 'groups' },
             requiredValue     : { value: '' },
+        scopeClaim        : { value: 'scope' },
+        requiredScope     : { value: '' },
             adminToolsEnabled : { value: false },
             adminPort         : { value: 1880 },
             adminRequiredValue: { value: 'admin' }

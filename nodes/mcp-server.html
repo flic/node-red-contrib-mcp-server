@@ -27,7 +27,9 @@
                 <label for="node-config-input-filterHost" style="margin:0; width:auto;"> Only serve requests for this hostname</label>
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Off by default. When on, this node only answers requests whose <code>Host</code> header matches the hostname in the Server URL above — letting several <code>mcp-server</code> nodes share the same path on one Node-RED instance, split by hostname. Leave off for a single server, or when a reverse proxy rewrites the <code>Host</code> header.</small>
+                <small>Off by default. When on, this node answers only requests whose <code>Host</code> header
+                matches the server URL above, so several nodes can share the same paths on one Node-RED
+                instance. Leave off unless you need that.</small>
             </div>
             <div class="form-row">
                 <label for="node-config-input-serverName" style="width:150px"><i class="fa fa-server"></i> Server name</label>
@@ -46,7 +48,10 @@
                 <input type="text" id="node-config-input-issuerUrl" placeholder="https://idp.example.com (OIDC issuer URL)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>OIDC issuer base URL. Endpoints are auto-discovered from <code>/.well-known/openid-configuration</code> (falling back to PocketID's path layout). The provider must issue <b>JWT access tokens</b> verifiable via its JWKS. An empty value here silently breaks the OAuth discovery documents advertised to MCP clients (relative-path endpoints with no host) — so it's required. For local testing without a real IdP, put any placeholder URL here and rely solely on the <b>Local debug token</b> below; it's never contacted when the debug token matches.</small>
+                <small>OIDC issuer base URL; endpoints are auto-discovered from
+                <code>/.well-known/openid-configuration</code>. Required &mdash; an empty value breaks the
+                discovery documents advertised to MCP clients. For local testing without a real provider,
+                put any placeholder here and use the <b>Local debug token</b> below.</small>
             </div>
             <div class="form-row">
                 <label for="node-config-input-clientId" style="width:150px"><i class="fa fa-id-card"></i> Client ID</label>
@@ -72,7 +77,9 @@
                 <input type="text" id="node-config-input-audience" placeholder="(defaults to Client ID)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Defaults to the <b>Client ID</b> when left empty, so tokens issued to other apps at the same identity provider are rejected. Set it explicitly if your provider uses a different audience; the check is skipped only when both fields are empty. The issuer is always verified against the discovered identity provider.</small>
+                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Empty defaults to
+                the <b>Client ID</b>, so tokens issued to other apps at the same provider are rejected; the
+                check is skipped only when both are empty.</small>
             </div>
 
             <div class="form-row" style="margin-bottom:4px;">
@@ -81,7 +88,10 @@
                 <label for="node-config-input-dcrShim" style="margin:0; width:auto;"> Dynamic client registration shim</label>
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small><b>Leave this off unless you need it.</b> It is for one situation only: an MCP client that cannot use Client ID Metadata Documents, talking to an identity provider that cannot do dynamic client registration itself.<br><br>When on, this server advertises <i>itself</i> as the authorization server and answers the registration endpoint with your pre-registered client. That is the only way such a client can obtain a client ID &mdash; but it also means the <code>iss</code> your provider returns does not match the issuer the client discovered here, and a client that enforces <a href="https://datatracker.ietf.org/doc/html/rfc9207">RFC 9207</a> (required by MCP 2026-07-28) will refuse to complete the flow.<br><br>When off, clients are pointed straight at your identity provider and must use CIMD or a pre-registered client ID.</small>
+                <small><b>Leave this off unless you need it:</b> a client that cannot use CIMD, talking to a
+                provider that cannot do dynamic client registration itself. When on, this server advertises
+                <i>itself</i> as the authorization server &mdash; which breaks the RFC 9207 issuer check for
+                any client that enforces it.</small>
             </div>
 
             <hr style="margin:12px 0">
@@ -170,6 +180,28 @@
     other.</p>
     <p>Enable <b>Admin tools</b> to additionally expose <code>get_flow</code>/<code>deploy_flow</code>,
     which let an authorized caller read and deploy Node-RED flow tabs via the Admin HTTP API.</p>
+    <h3>MCP authentication</h3>
+    <p>The issuer is always verified against the discovered identity provider, and the audience
+    against the <b>Token audience</b> field (defaulting to the <b>Client ID</b>). The provider is
+    never contacted when the <b>Local debug token</b> matches, which is what makes local testing
+    possible without a real one — put any placeholder in <b>Issuer URL</b> and rely on the debug
+    token. Discovery falls back to Pocket ID's path layout if
+    <code>/.well-known/openid-configuration</code> is unavailable.</p>
+
+    <p>The <b>dynamic client registration shim</b> is off by default and should stay off. Turned on,
+    this server advertises itself as the authorization server and answers the registration endpoint
+    with your pre-registered client — the only way a client that cannot do CIMD can obtain a client
+    ID against a provider with no registration endpoint of its own. The cost is that the
+    <code>iss</code> your provider returns no longer matches the issuer the client discovered here,
+    so any client enforcing
+    <a href="https://datatracker.ietf.org/doc/html/rfc9207" target="_blank">RFC 9207</a> (required
+    by MCP 2026-07-28) refuses to finish the flow. With it off, clients are sent straight to the
+    provider and must use CIMD or a pre-registered client ID.</p>
+
+    <p><b>Hostname filtering</b> lets several servers share the same paths on one Node-RED instance,
+    split by <code>Host</code> header. Leave it off when a reverse proxy rewrites that header, or
+    nothing will match.</p>
+
     <h3>Access gates</h3>
     <p>Two independent axes, checked with <b>AND</b>. The <b>claim</b> axis asks what the
     <i>user</i> may do; the <b>scope</b> axis asks what the <i>client</i> was authorized to do on

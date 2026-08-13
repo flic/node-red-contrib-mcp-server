@@ -119,7 +119,7 @@ module.exports = function (RED) {
         // invisible to any client that falls back to scopes_supported, and the symptom is every
         // tool hidden with nothing logged. Warned, not silently fixed — the scope also has to
         // exist at the identity provider and be granted there.
-        const challengeScopes = requiredScopeChallenge([requiredScope]);
+        const requiredScopes = requiredScopeChallenge([requiredScope]);
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
         const clientId     = ((node.credentials && node.credentials.clientId)     || '').trim();
@@ -129,7 +129,7 @@ module.exports = function (RED) {
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
         const scopesStr    = (config.scopes || 'openid profile email').trim();
         const scopesArr    = scopesStr.split(/\s+/).filter(Boolean);
-        const advertisedArr = advertisedScopes(scopesArr, challengeScopes);
+        const advertisedArr = advertisedScopes(scopesArr, requiredScopes);
 
         // Groups granted to the local debug token (comma-separated, default 'admin'), so gates
         // with other values can be tested locally. Default only when never set — an explicitly
@@ -143,7 +143,7 @@ module.exports = function (RED) {
             tokenAudience,
             mcpServerUrl    : resourceUrl,
             resourceUrl,
-            challengeScopes,
+            advertisedScopes: advertisedArr.join(' '),
             localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
             localDebugGroups,
             httpGet,

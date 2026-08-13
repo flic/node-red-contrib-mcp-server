@@ -120,6 +120,8 @@ person's authority was delegated to the software holding the token. Collapse the
 and only one gets consulted: a client granted a read-only scope, driven by someone who may write,
 would write. The client's grant has to bound the user's rights, not be ignored.
 
+The required scope is added to `scopes_supported` automatically, so there is nothing to repeat in the scopes field, and it is named in the `WWW-Authenticate` challenge on a 401.
+
 The scope claim is read the way OAuth defines it
 ([RFC 6749 §3.3](https://datatracker.ietf.org/doc/html/rfc6749#section-3.3)): a space-delimited
 string, or an array if your provider sends one. The claim name is not configurable because it is standardised; `scp` is read as a fallback for

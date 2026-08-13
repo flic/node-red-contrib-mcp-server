@@ -8,7 +8,7 @@ const { createMcpAuth }              = require('../lib/mcp-auth');
 const { createHttpGuards, hostFilter } = require('../lib/http-guards');
 const { createAdminTools }           = require('../lib/admin-tools');
 const { handleRpc }                  = require('../lib/mcp-rpc');
-const { requiredScopeChallenge }      = require('../lib/claim-gate');
+const { requiredScopeChallenge, advertisedScopes } = require('../lib/claim-gate');
 const {
     buildProtectedResourceMetadata,
     buildAuthorizationServerMetadata,
@@ -129,22 +129,7 @@ module.exports = function (RED) {
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
         const scopesStr    = (config.scopes || 'openid profile email').trim();
         const scopesArr    = scopesStr.split(/\s+/).filter(Boolean);
-        const unadvertised = challengeScopes.split(' ').filter(v => v && !scopesArr.includes(v));
-        if (unadvertised.length) {
-            node.warn('mcp-server required scope not advertised: ' + unadvertised.join(' ') +
-                      ' — add it to Scopes, or clients that do not honour the WWW-Authenticate ' +
-                      'challenge will never request it and every tool will be hidden from them.');
-        }
-        // Audience enforcement: explicit config.audience wins, otherwise tokens must carry
-        // the client id in `aud`. Only when both are empty is the audience check skipped.
-        const tokenAudience = (config.audience || '').trim() || clientId;
-        // The DCR shim: this server acting as the authorization server and answering
-        // /oauth/register. Default ON when the property is absent — a node saved before
-        // this switch existed has been proxying all along, and dropping its DCR endpoint
-        // on upgrade would break whatever client depends on it. New nodes get false from
-        // the editor's defaults, because pointing clients straight at the IdP is correct
-        // wherever the IdP can serve them (see resolveAuthServerUrl).
-        const dcrShim = (config.dcrShim === undefined) ? true : config.dcrShim === true;
+        const advertisedArr = advertisedScopes(scopesArr, challengeScopes);
 
         // Groups granted to the local debug token (comma-separated, default 'admin'), so gates
         // with other values can be tested locally. Default only when never set — an explicitly
@@ -240,7 +225,7 @@ module.exports = function (RED) {
         // ── OAuth: protected-resource metadata (RFC 9728) ──────────────────────────
         const protectedResourceHandler = (_req, res) => {
             res.status(200).json(buildProtectedResourceMetadata({
-                resourceUrl, scopes: scopesArr,
+                resourceUrl, scopes: advertisedArr,
                 authServerUrl: resolveAuthServerUrl(dcrShim, resourceUrl, issuerUrl)
             }));
         };
@@ -259,7 +244,7 @@ module.exports = function (RED) {
             const authServerHandler = async (_req, res) => {
                 const oidc = await getOidcConfig();
                 res.status(200).json(buildAuthorizationServerMetadata({
-                    issuerBase: resourceUrl, oidc, registrationEndpoint, scopes: scopesArr
+                    issuerBase: resourceUrl, oidc, registrationEndpoint, scopes: advertisedArr
                 }));
             };
             for (const p of authServerPaths) {
@@ -289,7 +274,7 @@ module.exports = function (RED) {
                 const redirectUris = resolveRedirectUris(
                     req.body && req.body.redirect_uris, DEFAULT_REDIRECT_URIS);
                 res.status(201).json(buildDcrRegistration({
-                    clientId, redirectUris, scopeStr: scopesStr
+                    clientId, redirectUris, scopeStr: advertisedArr.join(' ')
                 }));
             });
         } else {

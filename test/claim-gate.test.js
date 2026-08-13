@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert');
-const { readClaim, grants, claimAllows, createToolGate, visibleTools, tokenScopes, scopeAllows, requiredScopeChallenge } = require('../lib/claim-gate');
+const { readClaim, grants, claimAllows, createToolGate, visibleTools, tokenScopes, scopeAllows, requiredScopeChallenge, advertisedScopes } = require('../lib/claim-gate');
 
 describe('lib/claim-gate grants', function () {
     it('grants nothing for an empty or absent list', function () {
@@ -273,5 +273,31 @@ describe('requiredScopeChallenge', function () {
         assert.strictEqual(requiredScopeChallenge(['', '']), '');
         assert.strictEqual(requiredScopeChallenge([]), '');
         assert.strictEqual(requiredScopeChallenge(undefined), '');
+    });
+});
+
+describe('advertisedScopes', function () {
+    it('adds the required scopes to the configured ones', function () {
+        // RFC 9728: scopes_supported is what a client should request for this resource, and a
+        // scope the gate requires is one of those by definition. Deriving it removes the state
+        // where a server demands a scope no client is ever told to ask for.
+        assert.deepStrictEqual(
+            advertisedScopes(['openid', 'profile'], 'read:ha write:ha'),
+            ['openid', 'profile', 'read:ha', 'write:ha']);
+    });
+
+    it('does not duplicate one that was already configured', function () {
+        assert.deepStrictEqual(advertisedScopes(['openid', 'read:ha'], 'read:ha'),
+                               ['openid', 'read:ha']);
+    });
+
+    it('is unchanged when no scope is required', function () {
+        assert.deepStrictEqual(advertisedScopes(['openid'], ''), ['openid']);
+        assert.deepStrictEqual(advertisedScopes(['openid'], undefined), ['openid']);
+    });
+
+    it('survives an empty or missing configured list', function () {
+        assert.deepStrictEqual(advertisedScopes([], 'read:ha'), ['read:ha']);
+        assert.deepStrictEqual(advertisedScopes(undefined, 'read:ha'), ['read:ha']);
     });
 });

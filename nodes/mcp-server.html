@@ -75,6 +75,15 @@
                 <small>Incoming tokens must carry this value in their <code>aud</code> claim. Defaults to the <b>Client ID</b> when left empty, so tokens issued to other apps at the same identity provider are rejected. Set it explicitly if your provider uses a different audience; the check is skipped only when both fields are empty. The issuer is always verified against the discovered identity provider.</small>
             </div>
 
+            <div class="form-row" style="margin-bottom:4px;">
+                <label style="width:150px">&nbsp;</label>
+                <input type="checkbox" id="node-config-input-dcrShim" style="width:23px; margin:0">
+                <label for="node-config-input-dcrShim" style="margin:0; width:auto;"> Dynamic client registration shim</label>
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small><b>Leave this off unless you need it.</b> It is for one situation only: an MCP client that cannot use Client ID Metadata Documents, talking to an identity provider that cannot do dynamic client registration itself.<br><br>When on, this server advertises <i>itself</i> as the authorization server and answers the registration endpoint with your pre-registered client. That is the only way such a client can obtain a client ID &mdash; but it also means the <code>iss</code> your provider returns does not match the issuer the client discovered here, and a client that enforces <a href="https://datatracker.ietf.org/doc/html/rfc9207">RFC 9207</a> (required by MCP 2026-07-28) will refuse to complete the flow.<br><br>When off, clients are pointed straight at your identity provider and must use CIMD or a pre-registered client ID.</small>
+            </div>
+
             <hr style="margin:12px 0">
 
             <div class="form-row">
@@ -175,6 +184,7 @@
             issuerUrl         : { value: '', required: true },
             scopes            : { value: 'openid profile email' },
             audience          : { value: '' },
+        dcrShim           : { value: false },
             tokenCacheTTL     : { value: 300 },
             localDebugGroups  : { value: 'admin' },
             requiredClaim     : { value: 'groups' },
@@ -193,6 +203,14 @@
             return this.name || '/mcp/' + (this.path || '?');
         },
         oneditprepare: function () {
+            // A node saved before this switch existed has no dcrShim property, and Node-RED does
+            // not backfill declared defaults into nodes that predate them. Left alone the box
+            // would render unchecked and the first Done would silently turn off a shim the
+            // install has been relying on — so an absent value is shown as on, matching what the
+            // runtime does with it.
+            if (this.dcrShim === undefined) {
+                $('#node-config-input-dcrShim').prop('checked', true);
+            }
             var tabs = RED.tabs.create({
                 id: 'mcpsrv-tabs',
                 onchange: function (tab) {

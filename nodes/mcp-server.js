@@ -13,7 +13,8 @@ const {
     buildAuthorizationServerMetadata,
     resolveRedirectUris,
     buildDcrRegistration,
-    describeDcrClient
+    describeDcrClient,
+    resolveAuthServerUrl
 } = require('../lib/oauth-discovery');
 
 // Used when a registering client doesn't request any redirect_uris of its own — the DCR
@@ -120,6 +121,13 @@ module.exports = function (RED) {
         // Audience enforcement: explicit config.audience wins, otherwise tokens must carry
         // the client id in `aud`. Only when both are empty is the audience check skipped.
         const tokenAudience = (config.audience || '').trim() || clientId;
+        // The DCR shim: this server acting as the authorization server and answering
+        // /oauth/register. Default ON when the property is absent — a node saved before
+        // this switch existed has been proxying all along, and dropping its DCR endpoint
+        // on upgrade would break whatever client depends on it. New nodes get false from
+        // the editor's defaults, because pointing clients straight at the IdP is correct
+        // wherever the IdP can serve them (see resolveAuthServerUrl).
+        const dcrShim = (config.dcrShim === undefined) ? true : config.dcrShim === true;
 
         // Groups granted to the local debug token (comma-separated, default 'admin'), so gates
         // with other values can be tested locally. Default only when never set — an explicitly
@@ -214,7 +222,8 @@ module.exports = function (RED) {
         // ── OAuth: protected-resource metadata (RFC 9728) ──────────────────────────
         const protectedResourceHandler = (_req, res) => {
             res.status(200).json(buildProtectedResourceMetadata({
-                resourceUrl, authServerUrl: resourceUrl, scopes: scopesArr
+                resourceUrl, scopes: scopesArr,
+                authServerUrl: resolveAuthServerUrl(dcrShim, resourceUrl, issuerUrl)
             }));
         };
         for (const p of resourceMetadataPaths) {
@@ -222,43 +231,53 @@ module.exports = function (RED) {
             RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), protectedResourceHandler);
         }
 
-        // ── OAuth: authorization-server metadata (RFC 8414) ────────────────────────
-        const authServerHandler = async (_req, res) => {
-            const oidc = await getOidcConfig();
-            res.status(200).json(buildAuthorizationServerMetadata({
-                issuerBase: resourceUrl, oidc, registrationEndpoint, scopes: scopesArr
-            }));
-        };
-        for (const p of authServerPaths) {
-            node.log('mcp-server registering route: GET ' + p);
-            RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), authServerHandler);
-        }
+        // ── The DCR shim: our own authorization-server identity, and /oauth/register ──
+        // Both or neither. Advertising ourselves as the issuer is what makes the register
+        // route discoverable, and it is also what makes the `iss` of the IdP's authorization
+        // response disagree with the issuer a client recorded — so leaving the metadata up
+        // while dropping the route would keep the cost and lose the point.
+        if (dcrShim) {
+            // ── OAuth: authorization-server metadata (RFC 8414) ────────────────────────
+            const authServerHandler = async (_req, res) => {
+                const oidc = await getOidcConfig();
+                res.status(200).json(buildAuthorizationServerMetadata({
+                    issuerBase: resourceUrl, oidc, registrationEndpoint, scopes: scopesArr
+                }));
+            };
+            for (const p of authServerPaths) {
+                node.log('mcp-server registering route: GET ' + p);
+                RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), authServerHandler);
+            }
 
-        // ── DCR shim ────────────────────────────────────────────────────────────
-        if (storedClientSecret) {
-            node.warn('A stored OAuth client secret is being ignored — this server now always '
-                + 'registers MCP clients as a public client (PKCE). Update the IdP client to '
-                + 'public with PKCE enabled, then open this MCP server\'s config, click Done, '
-                + 'and deploy: that deletes the stored secret and clears this warning.');
+            // ── DCR shim ────────────────────────────────────────────────────────────
+            if (storedClientSecret) {
+                node.warn('A stored OAuth client secret is being ignored — this server now always '
+                    + 'registers MCP clients as a public client (PKCE). Update the IdP client to '
+                    + 'public with PKCE enabled, then open this MCP server\'s config, click Done, '
+                    + 'and deploy: that deletes the stored secret and clears this warning.');
+            }
+            node.log('mcp-server registering route: POST ' + registerPath);
+            RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), async (req, res) => {
+                // DCR is deprecated as of MCP 2026-07-28 and kept only as a fallback, so record
+                // who still needs it. When the IdP advertises CIMD, reaching this route means the
+                // client skipped it in the spec's priority order — i.e. it cannot do CIMD, and it
+                // is the reason this shim still exists. Logged at info: a registration is routine,
+                // and node.warn would republish it into every editor's debug sidebar.
+                const who = describeDcrClient(req.body, req.headers);
+                const oidc = await getOidcConfig().catch(() => ({}));
+                node.log(oidc.client_id_metadata_document_supported === true
+                    ? 'MCP DCR fallback (client lacks CIMD): ' + who
+                    : 'MCP DCR registration (IdP does not offer CIMD): ' + who);
+                const redirectUris = resolveRedirectUris(
+                    req.body && req.body.redirect_uris, DEFAULT_REDIRECT_URIS);
+                res.status(201).json(buildDcrRegistration({
+                    clientId, redirectUris, scopeStr: scopesStr
+                }));
+            });
+        } else {
+            node.log('mcp-server DCR shim off: authorization server is ' + (issuerUrl || resourceUrl) +
+                     ' — no registration endpoint, clients must use CIMD or pre-registration');
         }
-        node.log('mcp-server registering route: POST ' + registerPath);
-        RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), async (req, res) => {
-            // DCR is deprecated as of MCP 2026-07-28 and kept only as a fallback, so record
-            // who still needs it. When the IdP advertises CIMD, reaching this route means the
-            // client skipped it in the spec's priority order — i.e. it cannot do CIMD, and it
-            // is the reason this shim still exists. Logged at info: a registration is routine,
-            // and node.warn would republish it into every editor's debug sidebar.
-            const who = describeDcrClient(req.body, req.headers);
-            const oidc = await getOidcConfig().catch(() => ({}));
-            node.log(oidc.client_id_metadata_document_supported === true
-                ? 'MCP DCR fallback (client lacks CIMD): ' + who
-                : 'MCP DCR registration (IdP does not offer CIMD): ' + who);
-            const redirectUris = resolveRedirectUris(
-                req.body && req.body.redirect_uris, DEFAULT_REDIRECT_URIS);
-            res.status(201).json(buildDcrRegistration({
-                clientId, redirectUris, scopeStr: scopesStr
-            }));
-        });
 
         // ── MCP JSON-RPC endpoint ───────────────────────────────────────────────
         // The dispatch logic lives in lib/mcp-rpc.js (unit-testable); this handler is glue:

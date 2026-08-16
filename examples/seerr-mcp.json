@@ -152,7 +152,7 @@
     "type": "function",
     "z": "tab-seerr-mcp",
     "name": "Format response",
-    "func": "const code = msg.statusCode;\nif (code === 201) {\n  const r = msg.payload || {};\n  msg.payload = JSON.stringify({ success: true, requestId: r.id, status: r.status, mediaType: r.type });\n} else if (code === 202) {\n  msg.payload = JSON.stringify({ success: true, note: 'No new seasons available to request' });\n} else if (code === 403) {\n  msg.payload = JSON.stringify({ error: 'Permission denied, quota exceeded, or media is blocklisted' });\n} else if (code === 409) {\n  msg.payload = JSON.stringify({ error: 'Already requested' });\n} else {\n  msg.payload = JSON.stringify({ error: `HTTP ${code}` });\n}\nreturn msg;",
+    "func": "const code = msg.statusCode;\nif (code === 201) {\n  const r = msg.payload || {};\n  msg.payload = JSON.stringify({ success: true, requestId: r.id, status: r.status, mediaType: r.type });\n} else if (code === 202) {\n  msg.payload = JSON.stringify({ success: true, note: 'No new seasons available to request' });\n} else if (code === 403) {\n  msg.payload = JSON.stringify({ error: 'Permission denied, quota exceeded, or media is blocklisted' });\n} else if (code === 409) {\n  msg.payload = JSON.stringify({ error: 'Already requested' });\n} else {\n  const detail = msg.payload && msg.payload.message ? msg.payload.message : JSON.stringify(msg.payload);\n  msg.payload = JSON.stringify({ error: `HTTP ${code}`, detail });\n}\nreturn msg;",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",

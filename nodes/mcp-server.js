@@ -126,6 +126,9 @@ module.exports = function (RED) {
         // Read only to warn below — the server always registers clients as public (PKCE);
         // a secret handed out by the open DCR endpoint could never actually be secret.
         const storedClientSecret = ((node.credentials && node.credentials.clientSecret) || '').trim();
+        // Incoming tokens must carry this in `aud`. Defaults to the Client ID so tokens issued
+        // to other apps at the same identity provider are rejected; explicit config wins.
+        const tokenAudience = (config.audience || '').trim() || clientId;
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
         const scopesStr    = (config.scopes || 'openid profile email').trim();
         const scopesArr    = scopesStr.split(/\s+/).filter(Boolean);
@@ -221,6 +224,11 @@ module.exports = function (RED) {
         };
 
         const { rateLimit, maxBody } = createHttpGuards({ warn: msg => node.warn(msg) });
+
+        // Whether this node runs its own authorization-server identity + /oauth/register shim
+        // (legacy DCR fallback), or defers entirely to the real identity provider. See the
+        // editor's "Dynamic client registration shim" checkbox.
+        const dcrShim = config.dcrShim === true;
 
         // ── OAuth: protected-resource metadata (RFC 9728) ──────────────────────────
         const protectedResourceHandler = (_req, res) => {

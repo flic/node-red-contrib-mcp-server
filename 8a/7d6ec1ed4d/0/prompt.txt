@@ -1,0 +1,9 @@
+är mcp-server klar för en npm publish?
+
+---
+
+är mcp-server klar för en npm publish?
+
+---
+
+Bumpa till 1.7.3

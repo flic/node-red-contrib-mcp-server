@@ -120,7 +120,7 @@
     "type": "function",
     "z": "tab-seerr-mcp",
     "name": "Build request",
-    "func": "const base = env.get('SEERR_URL');\nconst key = env.get('SEERR_API_KEY');\nif (!base) { node.error('SEERR_URL not set'); return null; }\nif (!key) { node.error('SEERR_API_KEY not set'); return null; }\nconst { mediaId, mediaType, seasons, is4k } = msg.payload || {};\nconst body = { mediaId, mediaType: mediaType.toUpperCase(), is4k: !!is4k };\nif (mediaType === 'tv' && Array.isArray(seasons) && seasons.length > 0) body.seasons = seasons;\nmsg.url = `${base}/api/v1/request`;\nmsg.method = 'POST';\nmsg.headers = { 'X-Api-Key': key, 'Content-Type': 'application/json' };\nmsg.payload = body;\nreturn msg;",
+    "func": "const base = env.get('SEERR_URL');\nconst key = env.get('SEERR_API_KEY');\nif (!base) { node.error('SEERR_URL not set'); return null; }\nif (!key) { node.error('SEERR_API_KEY not set'); return null; }\nconst { mediaId, mediaType, seasons, is4k } = msg.payload || {};\nconst body = { mediaId, mediaType, is4k: !!is4k };\nif (mediaType === 'tv' && Array.isArray(seasons) && seasons.length > 0) body.seasons = seasons;\nmsg.url = `${base}/api/v1/request`;\nmsg.method = 'POST';\nmsg.headers = { 'X-Api-Key': key, 'Content-Type': 'application/json' };\nmsg.payload = body;\nreturn msg;",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",

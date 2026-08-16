@@ -1,6 +1,6 @@
 {
   "name": "@frtnbach/node-red-contrib-mcp-server",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Generic Model Context Protocol (MCP) server nodes for Node-RED: expose flows as MCP tools behind an OAuth-protected endpoint, with optional Node-RED admin (flow read/deploy) tools.",
   "keywords": [
     "node-red",
@@ -30,9 +30,10 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "mocha \"test/**/*.test.js\"",
+    "test": "eslint nodes lib test scripts && mocha \"test/**/*.test.js\"",
     "postpublish": "node --env-file=.env scripts/bsky-announce.js",
-    "test:announce": "node --env-file=.env scripts/bsky-announce.js"
+    "test:announce": "node --env-file=.env scripts/bsky-announce.js",
+    "lint": "eslint nodes lib test scripts"
   },
   "engines": {
     "node": ">=20.19.0"
@@ -50,6 +51,7 @@
   },
   "devDependencies": {
     "@atproto/api": "^0.20.34",
+    "eslint": "^10.8.1",
     "mocha": "^10.7.3"
   }
 }

@@ -112,7 +112,7 @@ instead of being collapsed into a generic "tool execution failed".
 ### The client axis: required scope
 
 The lists above answer *what may this user do*. `Required scope` answers a
-different question — *what was this client authorized to do on the user's behalf* — and the two
+different question — *what is this client authorized to do on the user's behalf* — and the two
 are checked with **AND**.
 
 They are not interchangeable. A group says who is at the keyboard; a scope says how much of that

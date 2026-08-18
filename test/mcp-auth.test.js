@@ -23,10 +23,13 @@ const cimdHttpGet = async (url) => {
 };
 
 function build(overrides = {}, payload = {}) {
-    const state = { verifyOpts: null, verifyCalls: 0, logs: [] };
+    const state = { verifyOpts: null, verifyCalls: 0, logs: [], userinfoCalls: 0 };
     const httpGet = async (url) => {
         if (url.includes('openid-configuration')) return DISCOVERY;
-        if (url.includes('userinfo')) return { status: 200, body: { email: 'u@example.com', groups: ['admin'] } };
+        if (url.includes('userinfo')) {
+            state.userinfoCalls += 1;
+            return { status: 200, body: { email: 'u@example.com', groups: ['admin'] } };
+        }
         return { status: 404, body: {} };
     };
     const auth = createMcpAuth(Object.assign({
@@ -194,11 +197,14 @@ describe('lib/mcp-auth validateToken', function () {
         assert.strictEqual(await auth.validateToken('bad'), null);
     });
 
-    it('returns merged JWT + userinfo claims for a valid token', async function () {
-        const { auth } = build();
+    it('returns the verified JWT claims, and only those', async function () {
+        // The stub would answer with groups if userinfo were consulted; the absence of that key
+        // is what pins the round-trip as gone rather than merely unused.
+        const { auth, state } = build({}, { groups: ['ops'] });
         const claims = await auth.validateToken('good');
-        assert.strictEqual(claims.sub, 'abc');           // from JWT payload
-        assert.deepStrictEqual(claims.groups, ['admin']); // from userinfo
+        assert.strictEqual(claims.sub, 'abc');
+        assert.deepStrictEqual(claims.groups, ['ops']);
+        assert.strictEqual(state.userinfoCalls, 0);
     });
 
     it('pins the discovered issuer on jwtVerify', async function () {
@@ -237,7 +243,7 @@ describe('lib/mcp-auth validateToken', function () {
     });
 
     it('isolates callers from the cache — mutating returned claims cannot poison later requests', async function () {
-        const { auth } = build();
+        const { auth } = build({}, { groups: ['admin'] });
         const first = await auth.validateToken('good');
         // A flow receiving msg.jwtClaims does exactly this kind of damage, deliberately or not.
         first.groups.push('root');
@@ -320,41 +326,63 @@ describe('lib/mcp-auth OIDC discovery retry', function () {
     });
 });
 
-describe('lib/mcp-auth userinfo failure reporting', function () {
-    // An anonymous recurring warning cannot be acted on: one client always refused looks the
-    // same as every client refused sometimes, and those need opposite responses.
-    it('names the client and subject a refusal belongs to', async function () {
+describe('lib/mcp-auth missing access claim', function () {
+    // The most expensive failure this server has: a gate configured against a claim the token
+    // does not carry denies every tool, and the caller sees a clean authentication followed by
+    // nothing. Since 3.0.0 removed the userinfo round-trip, that is the state a provider which
+    // keeps the claim in its ID token leaves you in — so it has to be said out loud.
+    function build(opts, payload) {
         const state = { warns: [] };
-        const auth = createMcpAuth({
+        const auth = createMcpAuth(Object.assign({
             issuerUrl: 'https://idp.example.com', tokenTTL: 300000,
-            httpGet: async (url) => url.includes('openid-configuration') ? DISCOVERY
-                                 : { status: 401, body: {} },
+            httpGet: async () => DISCOVERY,
             createRemoteJWKSet: () => ({}), warn: m => state.warns.push(m),
-            jwtVerify: async () => ({ payload: {
-                sub: 'user-1', azp: 'client-a', exp: Math.floor(Date.now() / 1000) + 3600 } })
-        });
-        await auth.validateToken('t');
-        assert.ok(state.warns[0].includes('client=client-a'), state.warns[0]);
-        assert.ok(state.warns[0].includes('sub=user-1'), state.warns[0]);
+            jwtVerify: async (tok) => ({ payload: Object.assign(
+                { sub: 'u', azp: 'client-' + String(tok).slice(-1),
+                  exp: Math.floor(Date.now() / 1000) + 3600 }, payload) })
+        }, opts));
+        return { auth, state };
+    }
+    const missing = s => s.warns.filter(w => w.includes('is missing from tokens'));
+
+    it('names the claim and the client when a configured gate has nothing to read', async function () {
+        const { auth, state } = build({ gateClaim: 'groups', gateClaimRequired: true }, {});
+        await auth.validateToken('t1');
+        assert.strictEqual(missing(state).length, 1);
+        assert.ok(missing(state)[0].includes('"groups"'), missing(state)[0]);
+        assert.ok(missing(state)[0].includes('client=client-1'), missing(state)[0]);
+        assert.ok(missing(state)[0].includes('RFC 9068'), missing(state)[0]);
     });
 
-    it('falls back to client_id, and to ? when the token names neither', async function () {
-        for (const [payload, expected] of [
-            [{ client_id: 'client-b' }, 'client=client-b'],
-            [{}, 'client=?']
-        ]) {
-            const state = { warns: [] };
-            const auth = createMcpAuth({
-                issuerUrl: 'https://idp.example.com', tokenTTL: 300000,
-                httpGet: async (url) => url.includes('openid-configuration') ? DISCOVERY
-                                     : { status: 401, body: {} },
-                createRemoteJWKSet: () => ({}), warn: m => state.warns.push(m),
-                jwtVerify: async () => ({ payload: Object.assign(
-                    { exp: Math.floor(Date.now() / 1000) + 3600 }, payload) })
-            });
-            await auth.validateToken('t' + expected);
-            assert.ok(state.warns[0].includes(expected), state.warns[0]);
-        }
+    it('says nothing when the token carries the claim', async function () {
+        const { auth, state } = build({ gateClaim: 'groups', gateClaimRequired: true },
+                                      { groups: ['ops'] });
+        await auth.validateToken('t1');
+        assert.deepStrictEqual(missing(state), []);
+    });
+
+    it('says nothing when no gate value is set', async function () {
+        // An empty gate imposes no constraint, so a missing claim costs nothing and warning
+        // about it would be noise on every install that does not gate at all.
+        const { auth, state } = build({ gateClaim: 'groups', gateClaimRequired: false }, {});
+        await auth.validateToken('t1');
+        assert.deepStrictEqual(missing(state), []);
+    });
+
+    it('resolves a dotted claim the way the gate does', async function () {
+        // realm_access.roles must not be reported missing when the gate would find it.
+        const { auth, state } = build({ gateClaim: 'realm_access.roles', gateClaimRequired: true },
+                                      { realm_access: { roles: ['ops'] } });
+        await auth.validateToken('t1');
+        assert.deepStrictEqual(missing(state), []);
+    });
+
+    it('warns once per client, not once per token', async function () {
+        const { auth, state } = build({ gateClaim: 'groups', gateClaimRequired: true }, {});
+        await auth.validateToken('a1');
+        await auth.validateToken('b1');
+        await auth.validateToken('c2');
+        assert.strictEqual(missing(state).length, 2);
     });
 });
 

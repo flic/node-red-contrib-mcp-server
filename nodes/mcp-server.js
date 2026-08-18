@@ -9,14 +9,7 @@ const { createHttpGuards, hostFilter } = require('../lib/http-guards');
 const { createAdminTools }           = require('../lib/admin-tools');
 const { handleRpc }                  = require('../lib/mcp-rpc');
 const { requiredScopeChallenge, advertisedScopes } = require('../lib/claim-gate');
-const {
-    buildProtectedResourceMetadata,
-    buildAuthorizationServerMetadata,
-    resolveRedirectUris,
-    buildDcrRegistration,
-    describeDcrClient,
-    resolveAuthServerUrl
-} = require('../lib/oauth-discovery');
+const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
 
 // Used when a registering client doesn't request any redirect_uris of its own — the DCR
 // response must still carry the field for the authorization-code grant.
@@ -80,9 +73,6 @@ module.exports = function (RED) {
             '/.well-known/' + name + mcpRoutePath
         ];
         const resourceMetadataPaths = wellKnownPaths('oauth-protected-resource');
-        const authServerPaths       = wellKnownPaths('oauth-authorization-server');
-        const registerPath          = mcpRoutePath + '/oauth/register';
-        const registrationEndpoint  = publicBase + registerPath;
 
         // Optional Host-header filtering. Lets several mcp-server nodes share the same path
         // on one Node-RED instance, split by hostname. Off by default so single-server setups
@@ -122,16 +112,20 @@ module.exports = function (RED) {
         const requiredScopes = requiredScopeChallenge([requiredScope]);
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
-        const clientId     = ((node.credentials && node.credentials.clientId)     || '').trim();
         // Read only to warn below — the server always registers clients as public (PKCE);
         // a secret handed out by the open DCR endpoint could never actually be secret.
-        const storedClientSecret = ((node.credentials && node.credentials.clientSecret) || '').trim();
         // Incoming tokens must carry this in `aud`. Defaults to the Client ID so tokens issued
         // to other apps at the same identity provider are rejected; explicit config wins.
-        const tokenAudience = (config.audience || '').trim() || clientId;
+        // Empty means the resource identifier is required instead — what MCP mandates a client
+        // asks for (RFC 8707) and what a provider puts in `aud` for an API.
+        const tokenAudience = (config.audience || '').trim();
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
-        const scopesStr    = (config.scopes || 'openid profile email').trim();
-        const scopesArr    = scopesStr.split(/\s+/).filter(Boolean);
+        // A fixed base plus whatever the provider needs to release the claim the gate reads.
+        // `openid` is not negotiable — without it the flow is not OIDC at all — and `profile`
+        // earns its place because providers commonly attach custom claims to it.
+        const BASE_SCOPES  = ['openid', 'profile', 'email'];
+        const extraScopes  = (config.extraScopes || '').trim().split(/\s+/).filter(Boolean);
+        const scopesArr    = BASE_SCOPES.concat(extraScopes).filter((v, i, a) => a.indexOf(v) === i);
         const advertisedArr = advertisedScopes(scopesArr, requiredScopes);
 
         // Groups granted to the local debug token (comma-separated, default 'admin'), so gates
@@ -146,6 +140,7 @@ module.exports = function (RED) {
             tokenAudience,
             mcpServerUrl    : resourceUrl,
             resourceUrl,
+            gateClaim: requiredClaim, gateClaimRequired: !!requiredValue,
             advertisedScopes: advertisedArr.join(' '),
             localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
             localDebugGroups,
@@ -225,69 +220,16 @@ module.exports = function (RED) {
 
         const { rateLimit, maxBody } = createHttpGuards({ warn: msg => node.warn(msg) });
 
-        // Whether this node runs its own authorization-server identity + /oauth/register shim
-        // (legacy DCR fallback), or defers entirely to the real identity provider. See the
-        // editor's "Dynamic client registration shim" checkbox.
-        const dcrShim = config.dcrShim === true;
-
         // ── OAuth: protected-resource metadata (RFC 9728) ──────────────────────────
         const protectedResourceHandler = (_req, res) => {
             res.status(200).json(buildProtectedResourceMetadata({
                 resourceUrl, scopes: advertisedArr,
-                authServerUrl: resolveAuthServerUrl(dcrShim, resourceUrl, issuerUrl)
+                authServerUrl: issuerUrl || resourceUrl
             }));
         };
         for (const p of resourceMetadataPaths) {
             node.log('mcp-server registering route: GET ' + p);
             RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), protectedResourceHandler);
-        }
-
-        // ── The DCR shim: our own authorization-server identity, and /oauth/register ──
-        // Both or neither. Advertising ourselves as the issuer is what makes the register
-        // route discoverable, and it is also what makes the `iss` of the IdP's authorization
-        // response disagree with the issuer a client recorded — so leaving the metadata up
-        // while dropping the route would keep the cost and lose the point.
-        if (dcrShim) {
-            // ── OAuth: authorization-server metadata (RFC 8414) ────────────────────────
-            const authServerHandler = async (_req, res) => {
-                const oidc = await getOidcConfig();
-                res.status(200).json(buildAuthorizationServerMetadata({
-                    issuerBase: resourceUrl, oidc, registrationEndpoint, scopes: advertisedArr
-                }));
-            };
-            for (const p of authServerPaths) {
-                node.log('mcp-server registering route: GET ' + p);
-                RED.httpNode.get(p, ownedHostFilter, rateLimit('wk', 120), authServerHandler);
-            }
-
-            // ── DCR shim ────────────────────────────────────────────────────────────
-            if (storedClientSecret) {
-                node.warn('A stored OAuth client secret is being ignored — this server now always '
-                    + 'registers MCP clients as a public client (PKCE). Update the IdP client to '
-                    + 'public with PKCE enabled, then open this MCP server\'s config, click Done, '
-                    + 'and deploy: that deletes the stored secret and clears this warning.');
-            }
-            node.log('mcp-server registering route: POST ' + registerPath);
-            RED.httpNode.post(registerPath, ownedHostFilter, rateLimit('register', 20), async (req, res) => {
-                // DCR is deprecated as of MCP 2026-07-28 and kept only as a fallback, so record
-                // who still needs it. When the IdP advertises CIMD, reaching this route means the
-                // client skipped it in the spec's priority order — i.e. it cannot do CIMD, and it
-                // is the reason this shim still exists. Logged at info: a registration is routine,
-                // and node.warn would republish it into every editor's debug sidebar.
-                const who = describeDcrClient(req.body, req.headers);
-                const oidc = await getOidcConfig().catch(() => ({}));
-                node.log(oidc.client_id_metadata_document_supported === true
-                    ? 'MCP DCR fallback (client lacks CIMD): ' + who
-                    : 'MCP DCR registration (IdP does not offer CIMD): ' + who);
-                const redirectUris = resolveRedirectUris(
-                    req.body && req.body.redirect_uris, DEFAULT_REDIRECT_URIS);
-                res.status(201).json(buildDcrRegistration({
-                    clientId, redirectUris, scopeStr: advertisedArr.join(' ')
-                }));
-            });
-        } else {
-            node.log('mcp-server DCR shim off: authorization server is ' + (issuerUrl || resourceUrl) +
-                     ' — no registration endpoint, clients must use CIMD or pre-registration');
         }
 
         // ── MCP JSON-RPC endpoint ───────────────────────────────────────────────
@@ -337,16 +279,12 @@ module.exports = function (RED) {
             node.mcpPendingCalls = Object.create(null);
             auth.clearCache();
             for (const p of resourceMetadataPaths) { removeRoute(RED, 'get', p, node.id); }
-            for (const p of authServerPaths)       { removeRoute(RED, 'get', p, node.id); }
-            removeRoute(RED, 'post', registerPath, node.id);
             removeRoute(RED, 'post', mcpRoutePath, node.id);
         });
     }
 
     RED.nodes.registerType('mcp-server', McpServer, {
         credentials: {
-            clientId        : { type: 'text' },
-            clientSecret    : { type: 'password' },
             adminToken      : { type: 'password' },
             localDebugToken : { type: 'password' }
         }

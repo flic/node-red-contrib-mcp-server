@@ -54,23 +54,11 @@
                 put any placeholder here and use the <b>Local debug token</b> below.</small>
             </div>
             <div class="form-row">
-                <label for="node-config-input-clientId" style="width:150px"><i class="fa fa-id-card"></i> Client ID</label>
-                <input type="text" id="node-config-input-clientId" placeholder="Client ID" style="width:calc(100% - 185px)" autocomplete="off">
-            </div>
-            <!-- Client secrets are no longer supported: the open DCR endpoint made any
-                 configured secret world-readable. The hidden field stays so that saving
-                 the dialog submits an empty value, which deletes a previously stored
-                 secret (the editor only submits credential fields present in the DOM). -->
-            <input type="hidden" id="node-config-input-clientSecret">
-            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>A <b>public client with PKCE</b> at your identity provider. Its callback URLs matter only while the <b>DCR shim</b> below is on, since that is when every MCP client authenticates as <i>this</i> client. With the shim off each client has its own registration, and its callbacks belong there.</small>
-            </div>
-            <div class="form-row">
-                <label for="node-config-input-scopes" style="width:150px"><i class="fa fa-list"></i> OIDC scopes</label>
-                <input type="text" id="node-config-input-scopes" placeholder="openid profile email" style="width:calc(100% - 185px)">
+                <label for="node-config-input-extraScopes" style="width:150px"><i class="fa fa-list"></i> Additional scopes</label>
+                <input type="text" id="node-config-input-extraScopes" placeholder="(e.g. groups)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Space-separated list, advertised to clients as the scopes to request. Add e.g. <code>groups</code> to include group membership in the JWT &mdash; your provider must be configured to send that claim. Any <b>Required scope</b> below is added automatically; you do not repeat it here.</small>
+                <small>Clients are always told to request <code>openid profile email</code>, plus any <b>Required scope</b> set below. Add here only what your provider needs in order to put the <b>Access claim</b> into the access token &mdash; commonly <code>groups</code>.</small>
             </div>
             <div class="form-row">
                 <label for="node-config-input-audience" style="width:150px"><i class="fa fa-id-badge"></i> Token audience</label>
@@ -78,18 +66,6 @@
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
                 <small>Incoming tokens must carry this value in their <code>aud</code> claim. Leave it empty and the MCP endpoint's own URL is required instead &mdash; which is what your provider puts in <code>aud</code> for an API. The <b>Client ID</b> is accepted as well, for tokens issued through the DCR shim.</small>
-            </div>
-
-            <div class="form-row" style="margin-bottom:4px;">
-                <label style="width:150px">&nbsp;</label>
-                <input type="checkbox" id="node-config-input-dcrShim" style="width:23px; margin:0">
-                <label for="node-config-input-dcrShim" style="margin:0; width:auto;"> Dynamic client registration shim</label>
-            </div>
-            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small><b>Leave this off unless you need it:</b> a client that cannot use CIMD, talking to a
-                provider that cannot do dynamic client registration itself. When on, this server advertises
-                <i>itself</i> as the authorization server &mdash; which breaks the RFC 9207 issuer check for
-                any client that enforces it.</small>
             </div>
 
             <hr style="margin:12px 0">
@@ -233,9 +209,8 @@
             serverName        : { value: '' },
             instructions      : { value: '' },
             issuerUrl         : { value: '', required: true },
-            scopes            : { value: 'openid profile email' },
+            extraScopes       : { value: '' },
             audience          : { value: '' },
-        dcrShim           : { value: false },
             tokenCacheTTL     : { value: 300 },
             localDebugGroups  : { value: 'admin' },
             requiredClaim     : { value: 'groups' },
@@ -246,8 +221,6 @@
             adminRequiredValue: { value: 'admin' }
         },
         credentials: {
-            clientId       : { type: 'text' },
-            clientSecret   : { type: 'password' },
             adminToken     : { type: 'password' },
             localDebugToken: { type: 'password' }
         },
@@ -255,30 +228,6 @@
             return this.name || '/mcp/' + (this.path || '?');
         },
         oneditprepare: function () {
-            // A node saved before this switch existed has no dcrShim property, and Node-RED does
-            // not backfill declared defaults into nodes that predate them. Left alone the box
-            // would render unchecked and the first Done would silently turn off a shim the
-            // install has been relying on — so an absent value is shown as on, matching what the
-            // runtime does with it.
-            if (this.dcrShim === undefined) {
-                $('#node-config-input-dcrShim').prop('checked', true);
-            }
-            var tabs = RED.tabs.create({
-                id: 'mcpsrv-tabs',
-                onchange: function (tab) {
-                    $('#mcpsrv-tabs-content').children().hide();
-                    $('#' + tab.id).show();
-                }
-            });
-            tabs.addTab({ id: 'mcpsrv-tab-general', label: 'General' });
-            tabs.addTab({ id: 'mcpsrv-tab-auth',    label: 'Auth' });
-            tabs.addTab({ id: 'mcpsrv-tab-admin',   label: 'Admin' });
-
-            // Client secrets are deprecated: blank the hidden field (the editor pre-fills
-            // it with the __PWRD__ placeholder when a secret is stored) so saving the
-            // dialog submits '' and deletes any previously stored secret.
-            $('#node-config-input-clientSecret').val('');
-
             function updatePathHint() {
                 var path = $('#node-config-input-path').val() || '<path>';
                 $('#mcpsrv-path-hint small').text('Registers endpoint: POST /mcp/' + path);

@@ -228,6 +228,17 @@
             return this.name || '/mcp/' + (this.path || '?');
         },
         oneditprepare: function () {
+            var tabs = RED.tabs.create({
+                id: 'mcpsrv-tabs',
+                onchange: function (tab) {
+                    $('#mcpsrv-tabs-content').children().hide();
+                    $('#' + tab.id).show();
+                }
+            });
+            tabs.addTab({ id: 'mcpsrv-tab-general', label: 'General' });
+            tabs.addTab({ id: 'mcpsrv-tab-auth',    label: 'Auth' });
+            tabs.addTab({ id: 'mcpsrv-tab-admin',   label: 'Admin' });
+
             function updatePathHint() {
                 var path = $('#node-config-input-path').val() || '<path>';
                 $('#mcpsrv-path-hint small').text('Registers endpoint: POST /mcp/' + path);

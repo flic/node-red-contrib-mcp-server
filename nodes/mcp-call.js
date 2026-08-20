@@ -3,7 +3,7 @@ module.exports = function(RED) {
         RED.nodes.createNode(this, config);
         // The server whose tools this node calls. Required: unlike hal2, this package has no
         // implicit endpoint to fall back on — every tool belongs to one mcp-server node.
-        this.server          = RED.nodes.getNode(config.server);
+        this.mcpServer       = RED.nodes.getNode(config.mcpServer);
         this.allowAdminTools = config.allowAdminTools === true;
         this.field           = config.field || "payload";
         this.fieldType       = config.fieldType || "msg";
@@ -40,7 +40,7 @@ module.exports = function(RED) {
 
             // One node speaks for one server: its tools and nothing else, exactly as an MCP
             // client on that server's URL sees.
-            const target = node.server;
+            const target = node.mcpServer;
             if (!target || typeof target.callTool !== 'function') {
                 return fail('No MCP server configured (or it failed to start — check its status)');
             }

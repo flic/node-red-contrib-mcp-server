@@ -1,7 +1,7 @@
 <script type="text/html" data-template-name="mcp-call">
     <div class="form-row">
-        <label for="node-input-server" style="width:95px; padding-right:10px;"><i class="fa fa-server"></i> Server</label>
-        <input type="text" id="node-input-server" style="width:calc(100% - 125px)">
+        <label for="node-input-mcpServer" style="width:95px; padding-right:10px;"><i class="fa fa-server"></i> MCP Server</label>
+        <input type="text" id="node-input-mcpServer" style="width:calc(100% - 125px)">
     </div>
     <div class="form-row">
         <label for="node-input-name" style="width:95px; padding-right:10px;"><i class="fa fa-tag"></i> Name</label>
@@ -60,11 +60,11 @@
 
 <script type="text/javascript">
     RED.nodes.registerType('mcp-call', {
-        category: 'network',
-        color: '#c7e9c0',
+        category: 'MCP',
+        color: '#b3b3ff',
         defaults: {
-            server:          { value: '', type: 'mcp-server', required: true },
-            name:            {},
+            mcpServer:       { value: '', type: 'mcp-server', required: true },
+            name:            { value: '' },
             allowAdminTools: { value: false },
             field:           { value: 'payload' },
             fieldType:       { value: 'msg' }
@@ -72,8 +72,9 @@
         inputs: 1,
         outputs: 1,
         icon: 'font-awesome/fa-exchange',
+        paletteLabel: 'MCP Call',
         label: function () {
-            return this.name || 'mcp call';
+            return this.name || 'MCP Call';
         },
         oneditprepare: function () {
             $('#node-input-field').typedInput({

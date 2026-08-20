@@ -154,25 +154,25 @@ describe('mcp-call', function () {
     };
 
     it('calls a tool on the configured server', async function () {
-        const call = loadCall({ id: 'c1', server: 's1' }, server);
+        const call = loadCall({ id: 'c1', mcpServer: 's1' }, server);
         const out = await call({ tool: 'search' });
         assert.deepStrictEqual(out, { ok: true, result: [{ type: 'text', text: 'hit' }] });
     });
 
     it('reports an unknown tool as an error envelope', async function () {
-        const call = loadCall({ id: 'c2', server: 's1' }, server);
+        const call = loadCall({ id: 'c2', mcpServer: 's1' }, server);
         const out = await call({ tool: 'nope' });
         assert.strictEqual(out.ok, false);
         assert.strictEqual(out.error.code, -32601);
     });
 
     it('answers { list: true } with the server catalogue', async function () {
-        const call = loadCall({ id: 'c3', server: 's1' }, server);
+        const call = loadCall({ id: 'c3', mcpServer: 's1' }, server);
         assert.deepStrictEqual((await call({ list: true })).result.map(t => t.name), ['search']);
     });
 
     it('fails clearly when the server is missing rather than throwing', async function () {
-        const call = loadCall({ id: 'c4', server: 'gone' }, undefined);
+        const call = loadCall({ id: 'c4', mcpServer: 'gone' }, undefined);
         const out = await call({ tool: 'search' });
         assert.strictEqual(out.ok, false);
         assert.ok(out.error.message.includes('No MCP server configured'), out.error.message);

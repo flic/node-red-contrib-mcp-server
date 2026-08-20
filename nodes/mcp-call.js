@@ -1,3 +1,9 @@
+// The back door into this Node-RED's own MCP tools. Despite the name, nothing here speaks MCP:
+// no protocol, no connection, no reaching a server elsewhere. It calls the mcp-in nodes deployed
+// in this process directly, through the mcp-server config node's flow-side surface, starting
+// where the HTTP route's auth has already run — which is to say, past it. See the node's help
+// text for why that is deliberate and where it stops (admin tools keep the route's rule).
+
 module.exports = function(RED) {
     function mcpCall(config) {
         RED.nodes.createNode(this, config);

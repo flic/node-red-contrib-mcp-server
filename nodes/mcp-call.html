@@ -20,9 +20,19 @@
 </script>
 
 <script type="text/html" data-help-name="mcp-call">
-    <p>Calls a tool on one <code>mcp-server</code> from a flow, over the same request/response
-    contract an MCP client uses. Wire it behind an <code>inject</code>, <code>http in</code>, MQTT,
-    or anything that produces a JSON message.</p>
+    <p><strong>This is not an MCP client.</strong> It speaks no MCP protocol, opens no connection,
+    and cannot reach a server anywhere else — not a remote one, not another Node-RED, not even this
+    server's own HTTP route. It is the back door into your <em>own</em> tools: it calls the
+    <code>mcp-in</code> nodes in this Node-RED directly, in-process, on whichever
+    <code>mcp-server</code> config node you pick above.</p>
+    <p>What a real MCP client goes through — the HTTP route, the bearer token, the claim and scope
+    gates — is all upstream of where this node joins in. It starts where the request has already
+    been let in, and hands your flow the same message an authorized client's call would have
+    produced. Wire it behind an <code>inject</code>, <code>http in</code>, MQTT, or anything else
+    that produces a JSON message.</p>
+    <p>For plain flow-to-flow request/response with no MCP tool involved, Node-RED's built-in
+    <code>link call</code> is the simpler answer. This node earns its place when the flow you want
+    already sits behind an <code>mcp-in</code>, and when you want to ask a server what it holds.</p>
 
     <h3>Input</h3>
     <p><code>msg.payload</code> = <code>{ "tool": "&lt;name&gt;", "args": { ... } }</code>.
@@ -34,10 +44,11 @@
 
     <h3>Listing what is there</h3>
     <p>Send <code>{ "list": true }</code> (or <code>msg.list = true</code>) instead of a tool name to
-    get this server's catalogue: <code>{ name, description, inputSchema }</code> per tool, the same
-    shape an MCP client receives from <code>tools/list</code>. Since every tool on this server is
-    defined by your own <code>mcp-in</code> nodes, this is usually the only index of them there is.
-    Admin tools are left out.</p>
+    get the catalogue of the server configured above: <code>{ name, description, inputSchema }</code>
+    per tool, in the shape <code>tools/list</code> answers with. It is read straight from that
+    server's registry, so it lists the <code>mcp-in</code> nodes deployed in this Node-RED right
+    now — and since those are the only definition your tools have, this is usually the only index
+    of them there is. Admin tools are left out.</p>
 
     <h3>Output</h3>
     <p>The response envelope is written to the property configured in <strong>Property</strong>
@@ -49,10 +60,14 @@
     error rather than throwing.</p>
 
     <h3>Tool access does not apply here</h3>
-    <p>The claim and scope gates run on the server's HTTP route, where the token behind them was
-    verified. A flow node is already inside the trust boundary — editing flows is full control
-    either way — so a tool restricted to certain callers over MCP is still callable from a flow,
-    and the listing above shows it.</p>
+    <p>This being the back door is the whole point of the warning: the claim and scope gates live on
+    the HTTP route, guarding a token this node never sees, so coming in behind them means coming in
+    past them. A tool you restricted to certain callers over MCP is callable from a flow by anyone
+    who can drop this node next to it, and the listing above shows it.</p>
+    <p>That is deliberate rather than a hole. A flow node is already inside the trust boundary —
+    whoever can edit flows can edit the tool itself — so a gate here would guard nothing while
+    suggesting it guarded something. But do not treat this node as a way to re-expose a gated tool:
+    if the message reaching it came from outside, the gate is yours to reproduce.</p>
     <p>Admin tools are the exception and keep the route's rule: enabled on the server, enabled on
     this node, <em>and</em> an admin claim on <code>msg.claims</code>. The checkbox alone is never
     sufficient.</p>

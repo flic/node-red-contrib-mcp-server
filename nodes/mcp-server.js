@@ -7,8 +7,10 @@ const pkgVersion = require('../package.json').version;
 const { createMcpAuth }              = require('../lib/mcp-auth');
 const { createHttpGuards, hostFilter } = require('../lib/http-guards');
 const { createAdminTools }           = require('../lib/admin-tools');
+const { toolOk, respond, rpcErr, unknownTool } = require('../lib/tool-result');
 const { handleRpc }                  = require('../lib/mcp-rpc');
-const { requiredScopeChallenge, advertisedScopes } = require('../lib/claim-gate');
+const { requiredScopeChallenge, advertisedScopes,
+        visibleTools, claimAllows }  = require('../lib/claim-gate');
 const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
 
 // Used when a registering client doesn't request any redirect_uris of its own — the DCR
@@ -210,6 +212,58 @@ module.exports = function (RED) {
             delete node.mcpRegisteredTools[name];
         };
 
+        // One call in flight, resolved by the matching mcp-out or abandoned on timeout. A node
+        // method rather than a closure inside rpcDeps, because mcp-call dispatches through the
+        // same path and two copies of this would drift.
+        node.dispatchMCPCall = function (name, timeoutMs, args, claims) {
+            return new Promise((resolve, reject) => {
+                const callId = crypto.randomBytes(16).toString('hex');
+                const timer  = setTimeout(() => {
+                    delete node.mcpPendingCalls[callId];
+                    reject(new Error('timeout'));
+                }, timeoutMs);
+                node.mcpPendingCalls[callId] = { resolve, reject, timer };
+                node.emit('mcp_tool_' + name, { args, _mcpCallId: callId, _mcpClaims: claims });
+            });
+        };
+
+        // The flow-side surface mcp-call uses. No gate is consulted for dynamic tools: the claim
+        // and scope gates run on the HTTP route, where the token behind them was verified, and a
+        // flow node is already inside the trust boundary since editing flows is full control.
+        // Admin tools are the exception and keep the route's rule — the caller's own opt-in AND a
+        // verified admin claim, because the flag alone must never be sufficient.
+        node.callTool = async function (toolName, args, claims, opts) {
+            opts = opts || {};
+            if (adminTools.TOOL_NAMES.has(toolName)) {
+                if (!adminToolsEnabled || !opts.adminEnabled) { return unknownTool(toolName); }
+                if (!claimAllows(claims, requiredClaim, adminRequiredValue)) {
+                    node.status({ fill: 'red', shape: 'ring', text: 'forbidden' });
+                    return rpcErr(-32000, 'Access denied: the "' + toolName + '" tool requires admin '
+                        + 'privileges. Set msg.claims to a value carrying them.');
+                }
+                return toolOk(await adminTools.callTool(toolName, args || {}));
+            }
+
+            const entry = node.mcpRegisteredTools[toolName];
+            if (!entry) { return unknownTool(toolName); }
+            try {
+                const content = await node.dispatchMCPCall(
+                    toolName, entry.timeoutMs || 30000, args || {}, claims || null);
+                return respond({ content: content });
+            } catch (e) {
+                node.status({ fill: 'red', shape: 'dot', text: 'timeout' });
+                return toolOk(JSON.stringify({
+                    error: e.message === 'timeout' ? 'Tool timed out: ' + toolName : e.message
+                }));
+            }
+        };
+
+        // What this server offers, in the shape tools/list uses. The gate allows everything
+        // because the flow path does — listing less than mcp-call can call would be a lie. Admin
+        // tools stay out: reaching them needs the calling node's own opt-in and a claim, so
+        // advertising them here would name a door most callers cannot open.
+        node.listTools = () => visibleTools(node.mcpRegisteredTools, { allows: () => true });
+
         node.resolveMCPCall = function (callId, content) {
             const pending = node.mcpPendingCalls[callId];
             if (!pending) return;
@@ -248,15 +302,8 @@ module.exports = function (RED) {
             adminTools,
             tools  : node.mcpRegisteredTools,
             status : s => node.status(s),
-            callTool: (toolName, timeoutMs, args, claims) => new Promise((resolve, reject) => {
-                const callId = crypto.randomBytes(16).toString('hex');
-                const timer  = setTimeout(() => {
-                    delete node.mcpPendingCalls[callId];
-                    reject(new Error('timeout'));
-                }, timeoutMs);
-                node.mcpPendingCalls[callId] = { resolve, reject, timer };
-                node.emit('mcp_tool_' + toolName, { args, _mcpCallId: callId, _mcpClaims: claims });
-            })
+            callTool: (toolName, timeoutMs, args, claims) =>
+                node.dispatchMCPCall(toolName, timeoutMs, args, claims)
         };
 
         node.log('mcp-server registering route: POST ' + mcpRoutePath);

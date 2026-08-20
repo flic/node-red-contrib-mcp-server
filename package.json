@@ -43,7 +43,8 @@
     "nodes": {
       "mcp-server": "nodes/mcp-server.js",
       "mcp-in": "nodes/mcp-in.js",
-      "mcp-out": "nodes/mcp-out.js"
+      "mcp-out": "nodes/mcp-out.js",
+      "mcp-call": "nodes/mcp-call.js"
     }
   },
   "dependencies": {

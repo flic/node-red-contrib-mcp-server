@@ -34,8 +34,28 @@ is a bare building block for turning Node-RED flows into MCP tools that AI assis
   `msg._mcpCallId` intact (from the originating `mcp-in` message) and `msg.payload` set to
   the result.
 
+- **`mcp-call`** — calls a tool on one `mcp-server` **from a flow**, over the same
+  request/response contract an MCP client uses. Send
+  `{ "tool": "<name>", "args": { ... } }`, or `{ "list": true }` to get that server's
+  catalogue in the shape `tools/list` returns.
+
 A single `mcp-in` → ... → `mcp-out` chain is one MCP tool. Build as many chains as you want
 against the same `mcp-server` node to expose a whole toolset.
+
+### Calling your own tools from a flow
+
+`mcp-call` exists for two things. Reusing a flow that already sits behind an `mcp-in` without
+wiring a parallel `link in` beside it — for plain flow-to-flow request/response with no MCP tool
+involved, Node-RED's built-in `link call` is the simpler answer. And asking a server what it
+exposes: since every tool here is defined by your own `mcp-in` nodes, `{ "list": true }` is
+usually the only index of them there is.
+
+**Tool access does not apply on this path.** The claim and scope gates run on the server's HTTP
+route, where the token behind them was verified. A flow node is already inside the trust boundary
+— editing flows is full control either way — so a tool restricted to certain callers over MCP is
+still callable from a flow, and the listing shows it. Admin tools are the exception and keep the
+route's rule: enabled on the server, enabled on the `mcp-call` node, **and** an admin claim on
+`msg.claims`.
 
 ## Admin tools
 

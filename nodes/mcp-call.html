@@ -1,0 +1,86 @@
+<script type="text/html" data-template-name="mcp-call">
+    <div class="form-row">
+        <label for="node-input-server" style="width:95px; padding-right:10px;"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server" style="width:calc(100% - 125px)">
+    </div>
+    <div class="form-row">
+        <label for="node-input-name" style="width:95px; padding-right:10px;"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name" style="width:calc(100% - 170px)">
+    </div>
+    <div class="form-row">
+        <label for="node-input-field" style="width:95px; padding-right:10px;"><i class="fa fa-ellipsis-h"></i> Property</label>
+        <input type="text" id="node-input-field" style="width:calc(100% - 125px)">
+        <input type="hidden" id="node-input-fieldType">
+    </div>
+    <div class="form-row">
+        <label for="node-input-allowAdminTools" style="width:auto"><i class="fa fa-shield"></i> Allow admin tools</label>
+        <input type="checkbox" id="node-input-allowAdminTools" style="display: inline-block; width: auto; vertical-align: top;">
+    </div>
+    <div class="form-tips">Admin tools (<code>get_flow</code>, <code>deploy_flow</code>) also need them enabled on the server <i>and</i> an admin claim on <code>msg.claims</code>. Leave off unless the flow holding this node is trusted.</div>
+</script>
+
+<script type="text/html" data-help-name="mcp-call">
+    <p>Calls a tool on one <code>mcp-server</code> from a flow, over the same request/response
+    contract an MCP client uses. Wire it behind an <code>inject</code>, <code>http in</code>, MQTT,
+    or anything that produces a JSON message.</p>
+
+    <h3>Input</h3>
+    <p><code>msg.payload</code> = <code>{ "tool": "&lt;name&gt;", "args": { ... } }</code>.
+    <code>msg.tool</code> / <code>msg.args</code> override the payload fields if present, and
+    <code>msg.claims</code> is passed through to the tool.</p>
+    <p><strong>The payload must be an object.</strong> In an <code>inject</code> node set the type to
+    <code>{} JSON</code>, not <code>string</code> — a JSON <em>string</em> is auto-parsed as a
+    fallback, but setting <code>msg.tool</code> directly always works.</p>
+
+    <h3>Listing what is there</h3>
+    <p>Send <code>{ "list": true }</code> (or <code>msg.list = true</code>) instead of a tool name to
+    get this server's catalogue: <code>{ name, description, inputSchema }</code> per tool, the same
+    shape an MCP client receives from <code>tools/list</code>. Since every tool on this server is
+    defined by your own <code>mcp-in</code> nodes, this is usually the only index of them there is.
+    Admin tools are left out.</p>
+
+    <h3>Output</h3>
+    <p>The response envelope is written to the property configured in <strong>Property</strong>
+    (<code>msg.payload</code> by default — any <code>msg</code> path, or a
+    <code>flow</code>/<code>global</code> context key):<br>
+    <code>{ "ok": true, "result": ... }</code> on success, or
+    <code>{ "ok": false, "error": { "code", "message" } }</code> on failure. An unknown tool name
+    answers <code>-32601</code>, and a tool that never replies answers a result carrying a timeout
+    error rather than throwing.</p>
+
+    <h3>Tool access does not apply here</h3>
+    <p>The claim and scope gates run on the server's HTTP route, where the token behind them was
+    verified. A flow node is already inside the trust boundary — editing flows is full control
+    either way — so a tool restricted to certain callers over MCP is still callable from a flow,
+    and the listing above shows it.</p>
+    <p>Admin tools are the exception and keep the route's rule: enabled on the server, enabled on
+    this node, <em>and</em> an admin claim on <code>msg.claims</code>. The checkbox alone is never
+    sufficient.</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('mcp-call', {
+        category: 'network',
+        color: '#c7e9c0',
+        defaults: {
+            server:          { value: '', type: 'mcp-server', required: true },
+            name:            {},
+            allowAdminTools: { value: false },
+            field:           { value: 'payload' },
+            fieldType:       { value: 'msg' }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'font-awesome/fa-exchange',
+        label: function () {
+            return this.name || 'mcp call';
+        },
+        oneditprepare: function () {
+            $('#node-input-field').typedInput({
+                default: 'msg',
+                types: ['msg', 'flow', 'global'],
+                typeField: $('#node-input-fieldType')
+            });
+        }
+    });
+</script>

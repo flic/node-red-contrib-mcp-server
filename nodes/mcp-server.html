@@ -65,7 +65,7 @@
                 <input type="text" id="node-config-input-audience" placeholder="(defaults to the MCP endpoint URL)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Leave it empty and the MCP endpoint's own URL is required instead &mdash; which is what your provider puts in <code>aud</code> for an API. The <b>Client ID</b> is accepted as well, for tokens issued through the DCR shim.</small>
+                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Leave it empty and the MCP endpoint's own URL is required instead &mdash; which is what your provider puts in <code>aud</code> for an API. A <b>Client ID Metadata Document</b> URL is accepted as well, when your provider advertises CIMD.</small>
             </div>
 
             <hr style="margin:12px 0">
@@ -162,15 +162,16 @@
     token. Discovery falls back to Pocket ID's path layout if
     <code>/.well-known/openid-configuration</code> is unavailable.</p>
 
-    <p>The <b>dynamic client registration shim</b> is off by default and should stay off. Turned on,
-    this server advertises itself as the authorization server and answers the registration endpoint
-    with your pre-registered client — the only way a client that cannot do CIMD can obtain a client
-    ID against a provider with no registration endpoint of its own. The cost is that the
-    <code>iss</code> your provider returns no longer matches the issuer the client discovered here,
-    so any client enforcing
-    <a href="https://datatracker.ietf.org/doc/html/rfc9207" target="_blank">RFC 9207</a> (required
-    by MCP 2026-07-28) refuses to finish the flow. With it off, clients are sent straight to the
-    provider and must use CIMD or a pre-registered client ID.</p>
+    <p><b>Clients are the provider's business.</b> This server registers nothing and issues nothing:
+    it publishes protected-resource metadata naming your provider, and the client goes there with a
+    <a href="https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01"
+    target="_blank">Client ID Metadata Document</a> or an id registered there by hand. The
+    registration shim that used to stand in for a provider without its own registration endpoint was
+    removed in 2.0.0: it made this server claim to be the authorization server, so the
+    <code>iss</code> the provider returned no longer matched the issuer the client had discovered,
+    and any client enforcing
+    <a href="https://datatracker.ietf.org/doc/html/rfc9207" target="_blank">RFC 9207</a> (required by
+    MCP 2026-07-28) refused to finish the flow.</p>
 
     <p><b>Hostname filtering</b> lets several servers share the same paths on one Node-RED instance,
     split by <code>Host</code> header. Leave it off when a reverse proxy rewrites that header, or

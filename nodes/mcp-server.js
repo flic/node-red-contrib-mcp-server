@@ -13,10 +13,6 @@ const { requiredScopeChallenge, advertisedScopes,
         visibleTools, claimAllows }  = require('../lib/claim-gate');
 const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
 
-// Used when a registering client doesn't request any redirect_uris of its own — the DCR
-// response must still carry the field for the authorization-code grant.
-const DEFAULT_REDIRECT_URIS = ['https://claude.ai/api/mcp/auth_callback'];
-
 function httpGet(url, headers) {
     return new Promise((resolve, reject) => {
         const u    = new URL(url);
@@ -114,12 +110,10 @@ module.exports = function (RED) {
         const requiredScopes = requiredScopeChallenge([requiredScope]);
 
         // ── Auth (OIDC discovery, JWKS, token validation, Bearer middleware) ───────
-        // Read only to warn below — the server always registers clients as public (PKCE);
-        // a secret handed out by the open DCR endpoint could never actually be secret.
-        // Incoming tokens must carry this in `aud`. Defaults to the Client ID so tokens issued
-        // to other apps at the same identity provider are rejected; explicit config wins.
-        // Empty means the resource identifier is required instead — what MCP mandates a client
-        // asks for (RFC 8707) and what a provider puts in `aud` for an API.
+        // Incoming tokens must carry this in `aud`, so that tokens issued to other apps at the
+        // same identity provider are rejected. Empty means the resource identifier is required
+        // instead — what MCP mandates a client asks for (RFC 8707) and what a provider puts in
+        // `aud` for an API.
         const tokenAudience = (config.audience || '').trim();
         const issuerUrl    = (config.issuerUrl || '').replace(/\/$/, '');
         // A fixed base plus whatever the provider needs to release the claim the gate reads.

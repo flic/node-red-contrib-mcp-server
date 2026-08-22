@@ -6,23 +6,32 @@ Node-RED admin (flow read/deploy) tools. No home-automation or other domain coup
 is a bare building block for turning Node-RED flows into MCP tools that AI assistants
 (Claude, etc.) can call.
 
-> **Breaking change in 0.5.0 — public client (PKCE) only.** Client secrets and the
-> node-side redirect URI allowlist are gone: the open client-registration endpoint handed
-> any configured secret to every caller, and redirect URIs are validated by the identity
-> provider at `/authorize` anyway. **Migration:** switch the IdP client to **public with
-> PKCE** (a still-confidential client fails token exchange with `invalid_client`), make
-> sure the MCP client callback URLs are whitelisted at the IdP, and if the node warns
-> about a stored secret, open its config, click **Done**, and deploy to delete it. MCP
-> clients connected before the upgrade may have cached the old registration — remove and
-> re-add the server in the client if sign-in misbehaves.
+> **Breaking change in 2.0.0 — a resource server and nothing else.** This node no longer
+> takes part in OAuth. It is not an OIDC client, registers nothing, and holds no
+> credentials: the dynamic client registration shim, the authorization-server metadata
+> routes and the `Client ID`/`Client secret` fields are all gone, along with the
+> `/userinfo` round-trip that used to fetch claims per request. What remains is verifying
+> the access token and reading what it says.
+>
+> **Migration.** Register each MCP client at your identity provider — or point it at a
+> [Client ID Metadata Document](#authentication), if the provider resolves those — instead of
+> letting it self-register here; clients that self-registered before the upgrade should be
+> removed and re-added. Then make sure the claim your gates match on (`Access claim`,
+> default `groups`) is in the **access token** and not only in the ID token or userinfo,
+> adding whatever scope your provider needs for that under **Additional scopes**. If it
+> cannot be — [PocketID, for one, has no way to put custom claims in the access
+> token](https://github.com/pocket-id/pocket-id/issues/1389) — leave the claim lists empty
+> and gate on `Required scope` plus the provider's own per-client user restrictions
+> instead. A gate whose claim is absent from every token refuses everyone, and says so in
+> the log once per client.
 
 ## Nodes
 
 - **`mcp-server`** (config node) — hosts a standalone MCP JSON-RPC endpoint at
-  `POST /mcp/<path>`, OAuth 2.0 protected-resource discovery (RFC 9728), authorization-server
-  discovery (RFC 8414) proxying a real OIDC identity provider, and a dynamic client
-  registration shim, so OAuth-aware MCP clients (e.g. Claude.ai) can self-register and
-  authenticate. Multiple `mcp-server` nodes can coexist, each with its own path and its own
+  `POST /mcp/<path>`, protected by a bearer token it verifies itself, and publishes OAuth 2.0
+  protected-resource metadata (RFC 9728) pointing OAuth-aware MCP clients (e.g. Claude.ai) at
+  the identity provider that issues those tokens. It runs no login and performs no OAuth flow
+  of its own. Multiple `mcp-server` nodes can coexist, each with its own path and its own
   independent auth configuration.
 - **`mcp-in`** — defines one MCP tool (name, description, JSON-Schema parameters, and an
   optional per-tool access gate). When an MCP client calls the tool, the node emits a message
@@ -81,10 +90,9 @@ contains `admin`):
   an optional **hostname filter** (see below).
 - **Auth**: an OIDC `Identity provider` issuer URL (**required** — endpoints auto-discovered
   from `/.well-known/openid-configuration`, with PocketID-style fallback paths; leaving this
-  empty produces a broken OAuth discovery document with relative-path endpoints and no working
-  auth, so the editor won't let you deploy without it), a client id (the IdP client must be
-  **public with PKCE** — client secrets are no longer supported, and redirect URIs are
-  configured and validated at the IdP only), scopes, token audience, an optional local debug token that bypasses
+  empty produces a protected-resource document naming no authorization server, so the editor
+  won't let you deploy without it), `Additional scopes` for whatever your provider needs in
+  order to put the access claim in the token, token audience, an optional local debug token that bypasses
   the IdP entirely for local testing (put any placeholder URL in Identity provider and rely on
   the debug token — it's never contacted when the debug token matches; the `groups` claim the
   debug user gets is configurable so the access gates can be tested locally too), and the
@@ -163,6 +171,18 @@ including when the token has no scope claim at all.
 > were also relabelled (`Required claim`/`Required value` → `Access claim`/`Server access`/`Admin
 > access`); the underlying settings are unchanged, so existing flows keep working untouched.
 
+### Authentication
+
+**This node is a resource server, and nothing else.** It runs no login, holds no client credentials and performs no OAuth flow. It publishes [RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728) protected-resource metadata naming your identity provider, and clients go there directly — with a [Client ID Metadata Document](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01) or a pre-registered client ID. Dynamic client registration is deprecated by MCP 2026-07-28 and, as of 2.0.0, is no longer offered here.
+
+**A request is authenticated by the access token alone.** Signature against the provider's JWKS, issuer pinned to the discovered provider, expiry enforced, and the audience must name this server. There is no second call: nothing is fetched from `/userinfo`, which serves a client asking about its own user rather than a resource server asking about a token. **Everything the access gates read must therefore be in the token** — see [RFC 9068 §2.2.3.1](https://www.rfc-editor.org/rfc/rfc9068.html), which is where an authorization server is told to put `groups`, `roles` and `entitlements`. A provider that keeps them in the ID token or userinfo alone leaves the claim gate with nothing to match, and the log says so, once per client.
+
+**Client ID Metadata Documents (CIMD).** MCP 2026-07-28 deprecates dynamic client registration in favour of [CIMD](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01), where a client's id is the HTTPS URL of a metadata document it hosts itself. Nothing about it is configured here, and this node advertises nothing: it reads `client_id_metadata_document_supported` from your IdP's discovery document purely to decide whether such a URL may appear as a token's audience. Resolving the document is the IdP's job, and a resource server is in no position to promise support the IdP doesn't have. Discovery is fetched once and cached for the lifetime of the node, so switching CIMD on or off at the IdP is picked up at the next Node-RED restart or deploy — not live.
+
+Tokens from a CIMD client carry that document URL as their audience rather than a pre-registered client id, and they are accepted whenever the IdP advertises CIMD. This node keeps no second allowlist of its own, so the IdP's list of accepted metadata documents is the boundary — any CIMD client on it can reach this server, with the access gates as the remaining check. `MCP CIMD client authenticated: <url>` is logged the first time each such client is seen after a restart, so which clients arrived that way is readable rather than guessed at.
+
+A client whose provider does not resolve metadata documents needs a client id registered at that provider by hand. Self-registration is not an option this server can restore: it never held the credentials that would make one, and since 2.0.0 it does not pretend to.
+
 ### Protocol
 
 The endpoint speaks MCP protocol version `2024-11-05` over plain HTTP POST — every request is
@@ -182,26 +202,18 @@ backend. Leave it off for a single server, or when a reverse proxy rewrites the 
 ### Reverse proxy
 
 Each `mcp-server` node is its own OAuth resource — unlike a single shared MCP endpoint, every
-instance registers **its own** discovery and registration routes, scoped under its `path`. For
-a node with `path: docker` and `Server URL: https://mcp.example.com`, these six routes exist:
+instance registers **its own** discovery routes, scoped under its `path`. For a node with
+`path: docker` and `Server URL: https://mcp.example.com`, these three routes exist:
 
 | Method & path | Purpose |
 |---|---|
 | `POST /mcp/docker` | The JSON-RPC MCP endpoint (bearer-token protected) |
 | `GET /mcp/docker/.well-known/oauth-protected-resource` | Resource metadata (RFC 9728), path-inserted form |
 | `GET /.well-known/oauth-protected-resource/mcp/docker` | Resource metadata (RFC 9728), RFC 8414 form |
-| `GET /mcp/docker/.well-known/oauth-authorization-server` | Auth-server metadata (RFC 8414), path-inserted form |
-| `GET /.well-known/oauth-authorization-server/mcp/docker` | Auth-server metadata (RFC 8414), RFC 8414 form |
 
-**Client ID Metadata Documents (CIMD).** MCP 2026-07-28 deprecates dynamic client registration in favour of [CIMD](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01), where a client's id is the HTTPS URL of a metadata document it hosts itself. This node advertises `client_id_metadata_document_supported` by mirroring what your IdP's discovery document says — it is never configured here, because it is the IdP that resolves the client id, and this server is in no position to promise support the IdP doesn't have. Discovery is fetched once and cached for the lifetime of the node, so enabling or disabling CIMD on the IdP is picked up at the next Node-RED restart or deploy — not live.
-
-**This node is a resource server, and nothing else.** It runs no login, holds no client credentials and performs no OAuth flow. It publishes [RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728) protected-resource metadata naming your identity provider, and clients go there directly — with a [Client ID Metadata Document](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-client-id-metadata-document-01) or a pre-registered client ID. Dynamic client registration is deprecated by MCP 2026-07-28 and, as of 2.0.0, is no longer offered here.
-
-**A request is authenticated by the access token alone.** Signature against the provider's JWKS, issuer pinned to the discovered provider, expiry enforced, and the audience must name this server. There is no second call: nothing is fetched from `/userinfo`, which serves a client asking about its own user rather than a resource server asking about a token. **Everything the access gates read must therefore be in the token** — see [RFC 9068 §2.2.3.1](https://www.rfc-editor.org/rfc/rfc9068.html), which is where an authorization server is told to put `groups`, `roles` and `entitlements`. A provider that keeps them in the ID token or userinfo alone leaves the claim gate with nothing to match, and the log says so, once per client.
-
-Both mechanisms stay available on purpose. Clients pick in the spec's order — pre-registered, then CIMD, then DCR — so a client without CIMD support keeps using the registration shim exactly as before. Which mechanism each client took is readable from the log: `MCP CIMD client authenticated: <url>` the first time a CIMD client is seen after a restart, and `MCP DCR fallback` for a client that registered even though the IdP advertises CIMD. Between them the two lines account for every client that reaches the server.
-
-Tokens from a CIMD client carry that document URL as their audience rather than your pre-registered client id, and they are accepted whenever the IdP advertises CIMD. This node keeps no second allowlist of its own, so the IdP's list of accepted metadata documents is the boundary — any CIMD client on it can reach this server, with the claim gate as the remaining check.
+Authorization-server metadata is **not** among them. A client reads the issuer out of the
+resource metadata and fetches that provider's own `/.well-known/openid-configuration` directly,
+rather than a copy proxied through here.
 
 Both well-known forms are advertised because different MCP clients probe different ones —
 expose both. Since every instance's routes share the `/mcp/<path>` and `/.well-known/*/mcp/<path>`
@@ -216,8 +228,12 @@ labels:
   caddy_1: mcp.example.com
   caddy_1.reverse_proxy_0: /mcp/* "{{upstreams 1880}}"
   caddy_1.reverse_proxy_1: /.well-known/oauth-protected-resource/mcp/* "{{upstreams 1880}}"
-  caddy_1.reverse_proxy_2: /.well-known/oauth-authorization-server/mcp/* "{{upstreams 1880}}"
 ```
+
+Upgrading from 1.x: a third rule for `/.well-known/oauth-authorization-server/mcp/*` can be
+dropped, since nothing answers there any more. Leaving it in place is harmless — it forwards to
+a 404 — but it no longer forwards to anything.
+
 
 Node-RED itself 404s any path that isn't an actual registered route, so the wildcard doesn't
 expose anything beyond what each deployed `mcp-server` node already registers. If a `path`
@@ -233,13 +249,11 @@ block (or combine with [hostname filtering](#hostname-filtering) above).
   verified locally; opaque/introspection-only access tokens are not supported).
 - A **public client** with **PKCE (S256)**, grant types `authorization_code` +
   `refresh_token`, and the MCP client's **redirect URI(s)** whitelisted (for Claude.ai:
-  `https://claude.ai/api/mcp/auth_callback`). Redirect URIs are configured and validated at
-  the identity provider only — the node no longer keeps its own allowlist, so IdP wildcard
-  support (e.g. PocketID's) works as-is. Client secrets are no longer supported: the open
-  client-registration endpoint handed any configured secret to every caller, so it could
-  never actually be secret. If a secret is still stored from an earlier version it is
-  ignored with a warning — switch the IdP client to public, then open the node's config,
-  click Done, and deploy to delete the stored secret and clear the warning.
+  `https://claude.ai/api/mcp/auth_callback`) — or CIMD support, which supplies all of that
+  from the client's own metadata document. Clients, redirect URIs and secrets are entirely
+  the provider's business; this node has no fields for any of them and never sees a redirect.
+- The **access claim in the access token**, if you use the claim gate — the token is all this
+  server reads. See [RFC 9068 §2.2.3.1](https://www.rfc-editor.org/rfc/rfc9068.html).
 
 > Tested with **Caddy** (reverse proxy) + **PocketID** (identity provider) + **Claude.ai** and
 > **Hermes** (MCP clients). Any spec-compliant OIDC provider issuing JWT access tokens, behind

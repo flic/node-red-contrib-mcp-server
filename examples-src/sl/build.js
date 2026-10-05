@@ -37,7 +37,7 @@ const tools = [
     },
     {
         id: 'departures', name: 'Departures', tool: 'sl_departures',
-        description: 'Upcoming departures from an SL stop, in real time: line, destination, expected time, minutes until departure, delay, platform, and any disruption on that departure. A stop covers every mode there (metro, bus, commuter train …) unless filtered. If the name matched several stops the others come back as alternatives.',
+        description: 'Upcoming departures from an SL stop, in real time: line, destination, expected time, minutes until departure, delay, platform, and any disruption on that departure. Also returns `disruptions`: current SL messages about the lines shown or the stop itself (an empty list means none, so no separate sl_deviations call is needed). A stop covers every mode there (metro, bus, commuter train …) unless filtered. If the name matched several stops the others come back as alternatives.',
         schema: {
             type: 'object', required: ['stop'],
             properties: {
@@ -47,6 +47,7 @@ const tools = [
                 direction: { type: 'integer', enum: [1, 2], description: 'Only this direction_code (as returned in earlier results)' },
                 minutes_ahead: { type: 'integer', minimum: 5, maximum: 1200, description: 'How far ahead to look (default 60)' },
                 limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Max departures (default 12)' },
+                include_disruptions: { type: 'boolean', description: 'Include current disruptions for the lines shown (default true)' },
             },
         },
     },

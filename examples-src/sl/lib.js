@@ -238,9 +238,19 @@ async function departures(args, deps) {
     const dir = int(args.direction, 'direction', 1, 2);
     const ahead = int(args.minutes_ahead, 'minutes_ahead', 5, 1200, 60);
     const limit = int(args.limit, 'limit', 1, 50, 12);
+    const withDisruptions = bool(args.include_disruptions, 'include_disruptions', true);
 
     const { stop, alternatives } = await resolveStop(deps, stopIn);
-    const body = await getJson(deps, `${TRANSPORT}/sites/${stop.site_id}/departures?${qs({ forecast: ahead })}`, TTL.departures);
+    // Disruptions ride along because "when does the next bus go?" is almost always
+    // also "is anything wrong?", and a second tool call is a whole extra model round
+    // trip (~4 s measured on the voice path). They are fetched in parallel and a
+    // failure there never costs the departures.
+    const [body, dev] = await Promise.all([
+        getJson(deps, `${TRANSPORT}/sites/${stop.site_id}/departures?${qs({ forecast: ahead })}`, TTL.departures),
+        withDisruptions
+            ? getJson(deps, deviationsUrl(stop.site_id), TTL.deviations).then((b) => ({ body: b }), (e) => ({ error: e.message }))
+            : null,
+    ]);
     const now = deps.now();
     const all = body.departures || [];
     if (!stop.name && all[0]) stop.name = all[0].stop_area && all[0].stop_area.name;
@@ -282,10 +292,53 @@ async function departures(args, deps) {
     if (stopDev.length) out.stop_deviations = stopDev;
     if (alternatives.length) out.alternatives = alternatives;
     if (!rows.length) out.note = `No departures matching the filters in the next ${ahead} minutes.`;
+    if (dev && dev.error) {
+        out.disruptions = null;
+        out.disruptions_error = dev.error;
+    } else if (dev) {
+        // Only messages about a line that is in the answer, or about the stop as a whole.
+        // With no departures to match against, everything at the stop is shown.
+        const shown = new Set(rows.map((d) => `${d.mode} ${String(d.line).toUpperCase()}`));
+        const relevant = (Array.isArray(dev.body) ? dev.body : [])
+            .filter((x) => {
+                const ls = (x.scope && x.scope.lines) || [];
+                return !rows.length || !ls.length
+                    || ls.some((l) => shown.has(`${l.transport_mode} ${String(l.designation).toUpperCase()}`));
+            })
+            .sort(byPriority);
+        out.disruptions = relevant.slice(0, MAX_DISRUPTIONS).map((x) => formatDeviation(x, 300));
+        if (relevant.length > MAX_DISRUPTIONS) out.more_disruptions = relevant.length - MAX_DISRUPTIONS;
+    }
     return out;
 }
 
 const prio = (x, k) => (x.priority && x.priority[k]) || 0;
+const MAX_DISRUPTIONS = 3;
+
+const byPriority = (a, b) => (prio(b, 'importance_level') - prio(a, 'importance_level'))
+    || (prio(b, 'influence_level') - prio(a, 'influence_level'))
+    || (((a.publish || {}).from || '') < ((b.publish || {}).from || '') ? 1 : -1);
+
+// Same URL for sl_deviations {stop} and the disruptions in sl_departures, so one cached
+// request serves both — SL asks for at most one a minute.
+const deviationsUrl = (site, future) => `${DEVIATIONS}?${qs({ future: future || undefined, site })}`;
+
+function formatDeviation(x, detailMax) {
+    const v = (x.message_variants || []).find((mv) => mv.language === 'sv') || (x.message_variants || [])[0] || {};
+    const scope = x.scope || {};
+    let details = v.details;
+    if (detailMax && details && details.length > detailMax) details = details.slice(0, detailMax).trimEnd() + '…';
+    return {
+        header: v.header,
+        details,
+        scope_alias: v.scope_alias,
+        lines: (scope.lines || []).map((l) => `${l.transport_mode} ${l.designation}`),
+        stops: [...new Set((scope.stop_areas || []).map((st) => st.name))],
+        from: toIso(x.publish && x.publish.from),
+        upto: toIso(x.publish && x.publish.upto),
+        importance: x.priority && x.priority.importance_level,
+    };
+}
 
 async function deviations(args, deps) {
     const stopIn = str(args.stop, 'stop');
@@ -298,32 +351,13 @@ async function deviations(args, deps) {
     if (stopIn) stop = (await resolveStop(deps, stopIn)).stop;
     // Without a stop the unfiltered list is fetched once and filtered here, so every
     // line/mode question shares one cached request — SL asks for at most one a minute.
-    const url = `${DEVIATIONS}?${qs({ future: future || undefined, site: stop ? stop.site_id : undefined })}`;
-    const body = await getJson(deps, url, TTL.deviations);
+    const body = await getJson(deps, deviationsUrl(stop ? stop.site_id : undefined, future), TTL.deviations);
     const msgs = (Array.isArray(body) ? body : [])
         .filter((x) => !m || ((x.scope && x.scope.lines) || []).some((l) => l.transport_mode === m))
         .filter((x) => !lns.length || ((x.scope && x.scope.lines) || []).some((l) => lns.includes(String(l.designation).toUpperCase())))
-        .sort((a, b) => (prio(b, 'importance_level') - prio(a, 'importance_level'))
-            || (prio(b, 'influence_level') - prio(a, 'influence_level'))
-            || (((a.publish || {}).from || '') < ((b.publish || {}).from || '') ? 1 : -1));
+        .sort(byPriority);
 
-    const out = {
-        total: msgs.length,
-        deviations: msgs.slice(0, limit).map((x) => {
-            const v = (x.message_variants || []).find((mv) => mv.language === 'sv') || (x.message_variants || [])[0] || {};
-            const scope = x.scope || {};
-            return {
-                header: v.header,
-                details: v.details,
-                scope_alias: v.scope_alias,
-                lines: (scope.lines || []).map((l) => `${l.transport_mode} ${l.designation}`),
-                stops: [...new Set((scope.stop_areas || []).map((s) => s.name))],
-                from: toIso(x.publish && x.publish.from),
-                upto: toIso(x.publish && x.publish.upto),
-                importance: x.priority && x.priority.importance_level,
-            };
-        }),
-    };
+    const out = { total: msgs.length, deviations: msgs.slice(0, limit).map((x) => formatDeviation(x)) };
     if (stop) out.stop = stop;
     return out;
 }

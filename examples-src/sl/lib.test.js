@@ -87,6 +87,7 @@ test('departures: resolves name, filters, drops departed, sorts, caches', async 
             ],
             stop_deviations: [{ message: 'Hissen är avstängd' }],
         },
+        'deviations.integration': [],
     });
     const r = await L.run('sl_departures', { stop: 'Odenplan', transport_mode: 'metro', direction: 2 }, d);
     assert.equal(r.stop.site_id, 9117);
@@ -98,7 +99,7 @@ test('departures: resolves name, filters, drops departed, sorts, caches', async 
     assert.deepEqual(r.alternatives, [{ name: 'Stockholm Odenplan', site_id: 1079 }]);
 
     await L.run('sl_departures', { stop: 'Odenplan', line: '41' }, d);
-    assert.equal(d.seen.length, 2, 'second call served from cache');
+    assert.equal(d.seen.length, 3, 'stop lookup, departures and disruptions are each fetched once');
 });
 
 test('departures: unknown name is an error, not a guess', async () => {
@@ -184,4 +185,87 @@ test('http failure surfaces as error text', async () => {
     const d = fakeDeps({});
     const r = await L.run('sl_departures', { stop: '9117' }, d);
     assert.match(r.error, /HTTP 404/);
+});
+
+// ── disruptions in sl_departures ─────────────────────────────────────────────
+
+const dmsg = (id, imp, linesArr, header, extra = {}) => ({
+    deviation_case_id: id, publish: { from: '2026-10-01T05:00:00+02:00', upto: '2026-10-09T06:31:00+02:00' },
+    priority: { importance_level: imp, influence_level: 3, urgency_level: 1 },
+    message_variants: [{ header, details: 'd'.repeat(extra.len || 10), scope_alias: 'a', language: 'sv' }],
+    scope: { stop_areas: [{ name: 'Drevergatan' }], lines: linesArr },
+});
+const bus = (n) => ({ designation: n, transport_mode: 'BUS' });
+const DEP_ROUTES = (devs) => ({
+    'stop-finder': STOPS,
+    '/sites/9117/departures': {
+        departures: [dep('6', 'BUS', 2, '2026-10-05T08:35:00', '2026-10-05T08:35:00'),
+                     dep('75', 'BUS', 2, '2026-10-05T08:40:00', '2026-10-05T08:40:00')],
+    },
+    ...(devs === undefined ? {} : { 'deviations.integration': devs }),
+});
+
+test('departures: disruptions come with the answer, for the lines shown only', async () => {
+    const d = fakeDeps(DEP_ROUTES([
+        dmsg(1, 5, [bus('6')], 'Försenad sexa'),
+        dmsg(2, 7, [bus('4')], 'Fyran inställd'),             // not shown -> dropped
+        dmsg(3, 2, [], 'Hållplatsen flyttad'),                // whole stop -> kept
+        dmsg(4, 7, [bus('75'), bus('2')], 'Sjuttiofem omledd'),
+    ]));
+    const r = await L.run('sl_departures', { stop: '9117' }, d);
+    assert.deepEqual(r.disruptions.map((x) => x.header), ['Sjuttiofem omledd', 'Försenad sexa', 'Hållplatsen flyttad']);
+    assert.ok(d.seen.some((u) => u.includes('deviations.integration') && u.includes('site=9117')));
+    assert.equal(r.more_disruptions, undefined);
+});
+
+test('departures: no disruptions is an explicit empty list, not a missing field', async () => {
+    const r = await L.run('sl_departures', { stop: '9117' }, fakeDeps(DEP_ROUTES([])));
+    assert.deepEqual(r.disruptions, []);
+    assert.equal(r.disruptions_error, undefined);
+});
+
+test('departures: capped at three, the rest counted, long details cut', async () => {
+    const many = [1, 2, 3, 4, 5].map((i) => dmsg(i, i, [bus('6')], `h${i}`, { len: 900 }));
+    const r = await L.run('sl_departures', { stop: '9117' }, fakeDeps(DEP_ROUTES(many)));
+    assert.deepEqual(r.disruptions.map((x) => x.header), ['h5', 'h4', 'h3']);
+    assert.equal(r.more_disruptions, 2);
+    assert.ok(r.disruptions[0].details.length <= 301 && r.disruptions[0].details.endsWith('…'));
+});
+
+test('departures: a failing deviations API never costs the departures', async () => {
+    const r = await L.run('sl_departures', { stop: '9117' }, fakeDeps(DEP_ROUTES(undefined)));   // 404
+    assert.equal(r.departures.length, 2);
+    assert.equal(r.disruptions, null);
+    assert.match(r.disruptions_error, /HTTP 404/);
+    assert.equal(r.error, undefined);
+});
+
+test('departures: include_disruptions=false makes no deviations request', async () => {
+    const d = fakeDeps(DEP_ROUTES([dmsg(1, 5, [bus('6')], 'x')]));
+    const r = await L.run('sl_departures', { stop: '9117', include_disruptions: false }, d);
+    assert.equal(r.disruptions, undefined);
+    assert.ok(!d.seen.some((u) => u.includes('deviations.integration')));
+    assert.ok((await L.run('sl_departures', { stop: '9117', include_disruptions: 'ja' }, d)).error);
+});
+
+test('departures: a line filter narrows the disruptions to that line', async () => {
+    const d = fakeDeps(DEP_ROUTES([dmsg(1, 5, [bus('6')], 'Sexan'), dmsg(2, 7, [bus('75')], 'Sjuttiofem')]));
+    const r = await L.run('sl_departures', { stop: '9117', line: '75' }, d);
+    assert.deepEqual(r.disruptions.map((x) => x.header), ['Sjuttiofem']);
+});
+
+test('departures: with nothing departing, every message at the stop is shown', async () => {
+    const d = fakeDeps(DEP_ROUTES([dmsg(1, 5, [bus('6')], 'Sexan')]));
+    const r = await L.run('sl_departures', { stop: '9117', line: '999' }, d);
+    assert.deepEqual(r.departures, []);
+    assert.deepEqual(r.disruptions.map((x) => x.header), ['Sexan']);
+});
+
+test('departures and sl_deviations {stop} share one cached deviations request', async () => {
+    const d = fakeDeps(DEP_ROUTES([dmsg(1, 5, [bus('6')], 'Sexan')]));
+    await L.run('sl_departures', { stop: '9117' }, d);
+    const before = d.seen.filter((u) => u.includes('deviations.integration')).length;
+    const r = await L.run('sl_deviations', { stop: '9117' }, d);
+    assert.equal(d.seen.filter((u) => u.includes('deviations.integration')).length, before);
+    assert.equal(r.total, 1);
 });

@@ -42,6 +42,19 @@ module.exports = [
         }
     },
     {
+        // examples-src/ builds the generated example flows and is not published.
+        files: ['examples-src/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'commonjs',
+            globals: nodeGlobals
+        },
+        rules: {
+            'no-undef': 'error',
+            'no-unused-vars': ['warn', { args: 'none' }]
+        }
+    },
+    {
         // scripts/ are ES modules run by hand or from npm lifecycle hooks.
         files: ['scripts/**/*.js'],
         languageOptions: {

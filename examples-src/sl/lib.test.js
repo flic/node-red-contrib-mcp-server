@@ -1,5 +1,5 @@
 'use strict';
-// node --test examples/sl/
+// node --test examples-src/sl/lib.test.js
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const L = require('./lib.js');

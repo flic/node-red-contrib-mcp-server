@@ -97,7 +97,7 @@
                 <input type="text" id="node-config-input-requiredValue" placeholder="(empty = any authenticated user)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Comma-separated <b>any-of</b> list against the claim above. The claim must contain at least one of them for any tool on this server to be callable; unauthorized callers connect but see no tools. Empty (the default) allows every authenticated user. Tool and admin lists narrow it further, combined with <b>AND</b>.</small>
+                <small><b>Requires the claim to be in the access token.</b> This server reads the token and nothing else, so a provider that keeps the claim in the ID token or userinfo alone leaves this gate with nothing to match and every tool hidden &mdash; the log says so when it happens. Ask your provider for it in the access token (<a href="https://www.rfc-editor.org/rfc/rfc9068.html" target="_blank">RFC 9068 §2.2.3.1</a>).<br><br>Comma-separated <b>any-of</b> list against the claim above. The claim must contain at least one of them for any tool on this server to be callable; unauthorized callers connect but see no tools. Empty (the default) allows every authenticated user. Tool and admin lists narrow it further, combined with <b>AND</b>.</small>
             </div>
 
             <div class="form-row">

@@ -81,7 +81,7 @@ module.exports = function (RED) {
         if (config.filterHost) {
             try {
                 expectedHost = new URL(publicBase).host;
-            } catch (e) {
+            } catch {
                 node.warn('Hostname filtering enabled but Server URL "' + publicBase +
                           '" is not a valid URL — filtering disabled, matching on path only');
             }

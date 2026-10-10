@@ -20,10 +20,12 @@ is a bare building block for turning Node-RED flows into MCP tools that AI assis
 > default `groups`) is in the **access token** and not only in the ID token or userinfo,
 > adding whatever scope your provider needs for that under **Additional scopes**. If it
 > cannot be — [PocketID, for one, has no way to put custom claims in the access
-> token](https://github.com/pocket-id/pocket-id/issues/1389) — leave the claim lists empty
-> and gate on `Required scope` plus the provider's own per-client user restrictions
-> instead. A gate whose claim is absent from every token refuses everyone, and says so in
-> the log once per client.
+> token](https://github.com/pocket-id/pocket-id/issues/1389) — leave the claim lists empty.
+> `Required scope` still limits which *clients* get in, but it cannot say which *users*:
+> that is left to whatever user restriction the provider applies per client, which covers
+> every API the client reaches rather than this server alone. There is no per-user gate
+> for this server without the claim. A gate whose claim is absent from every token refuses
+> everyone, and says so in the log once per client.
 
 ## Nodes
 
@@ -253,11 +255,14 @@ block (or combine with [hostname filtering](#hostname-filtering) above).
   from the client's own metadata document. Clients, redirect URIs and secrets are entirely
   the provider's business; this node has no fields for any of them and never sees a redirect.
 - The **access claim in the access token**, if you use the claim gate — the token is all this
-  server reads. See [RFC 9068 §2.2.3.1](https://www.rfc-editor.org/rfc/rfc9068.html).
+  server reads. See [RFC 9068 §2.2.3.1](https://www.rfc-editor.org/rfc/rfc9068.html). Not every
+  provider can: PocketID currently cannot ([#1389](https://github.com/pocket-id/pocket-id/issues/1389)), and without the claim
+  there is no per-user gate — `Required scope` restricts clients, not users.
 
 > Tested with **Caddy** (reverse proxy) + **PocketID** (identity provider) + **Claude.ai** and
 > **Hermes** (MCP clients). Any spec-compliant OIDC provider issuing JWT access tokens, behind
-> any reverse proxy that forwards the routes above, should work the same way.
+> any reverse proxy that forwards the routes above, should work the same way. The claim gate
+> is the exception with PocketID, which does not yet put it in the access token.
 
 ## Examples
 

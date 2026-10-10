@@ -65,7 +65,7 @@
                 <input type="text" id="node-config-input-audience" placeholder="(defaults to the MCP endpoint URL)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Leave it empty and the MCP endpoint's own URL is required instead &mdash; which is what your provider puts in <code>aud</code> for an API. A <b>Client ID Metadata Document</b> URL is accepted as well, when your provider advertises CIMD.</small>
+                <small>Incoming tokens must carry this value in their <code>aud</code> claim. Leave it empty and the MCP endpoint's own URL is required instead &mdash; which is what your provider puts in <code>aud</code> for an API.</small>
             </div>
 
             <hr style="margin:12px 0">
@@ -156,7 +156,7 @@
     which let an authorized caller read and deploy Node-RED flow tabs via the Admin HTTP API.</p>
     <h3>MCP authentication</h3>
     <p>The issuer is always verified against the discovered identity provider, and the audience
-    against the <b>Token audience</b> field (defaulting to the <b>Client ID</b>). The provider is
+    against the <b>Token audience</b> field (defaulting to the MCP endpoint URL). The provider is
     never contacted when the <b>Local debug token</b> matches, which is what makes local testing
     possible without a real one — put any placeholder in <b>Issuer URL</b> and rely on the debug
     token. Discovery falls back to Pocket ID's path layout if

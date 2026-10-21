@@ -164,6 +164,7 @@ module.exports = function (RED) {
         const adminRequiredValue = (config.adminRequiredValue === undefined ? 'admin' : config.adminRequiredValue).trim();
         const adminTools = createAdminTools({
             adminPort     : Number(config.adminPort || 1880),
+            adminRoot     : RED.settings.httpAdminRoot,
             getAdminToken : () => (node.credentials && node.credentials.adminToken) || ''
         });
 

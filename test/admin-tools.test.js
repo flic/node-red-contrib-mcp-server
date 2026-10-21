@@ -114,3 +114,47 @@ describe('lib/admin-tools deploy_flow', function () {
         assert.strictEqual(inspected[0].Authorization, 'Bearer sekret');
     });
 });
+
+describe('lib/admin-tools adminRoot', function () {
+    // The admin API lives under httpAdminRoot. An editor moved off '/' so that a proxy can
+    // publish only the editor must not leave these tools calling /flows at the root.
+    function capture(adminRoot) {
+        const paths = [];
+        const httpRequest = async (method, hostname, port, path) => {
+            paths.push(path);
+            return { status: 200, body: [] };
+        };
+        const tools = createAdminTools({ adminPort: 1880, adminRoot, getAdminToken: () => 'tok', httpRequest });
+        return { tools, paths };
+    }
+
+    it('prefixes every admin call with httpAdminRoot', async function () {
+        // Node-RED hands nodes the normalised form, with a trailing slash.
+        const { tools, paths } = capture('/editor/');
+        await tools.callTool('get_flow', {});
+        await tools.callTool('get_flow', { id: 'abc' });
+        await tools.callTool('deploy_flow', { label: 'X', nodes: [] });
+        await tools.callTool('deploy_flow', { id: 'abc', label: 'X', nodes: [] });
+        assert.deepStrictEqual(paths, ['/editor/flows', '/editor/flow/abc', '/editor/flow', '/editor/flow/abc']);
+    });
+
+    it('accepts the root without a trailing slash too', async function () {
+        const { tools, paths } = capture('/editor');
+        await tools.callTool('get_flow', {});
+        assert.deepStrictEqual(paths, ['/editor/flows']);
+    });
+
+    it('stays at the root for "/" and when unset', async function () {
+        for (const root of ['/', undefined, '']) {
+            const { tools, paths } = capture(root);
+            await tools.callTool('get_flow', {});
+            assert.deepStrictEqual(paths, ['/flows'], String(root));
+        }
+    });
+
+    it('fails clearly when the admin API is disabled', async function () {
+        const { tools, paths } = capture(false);
+        await assert.rejects(tools.callTool('get_flow', {}), /admin API is disabled/);
+        assert.deepStrictEqual(paths, []);
+    });
+});

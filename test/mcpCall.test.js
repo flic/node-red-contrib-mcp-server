@@ -30,7 +30,9 @@ function loadServer(config) {
             createNode(node, cfg) { node.id = cfg.id; },
             registerType: (name, fn) => { if (name === 'mcp-server') registered = fn; }
         },
-        httpNode: { get: () => {}, post: () => {}, _router: { stack: [] } }
+        httpNode: { get: () => {}, post: () => {}, _router: { stack: [] } },
+        // A real runtime always has settings; httpAdminRoot normalised as Node-RED does.
+        settings: { httpAdminRoot: '/' }
     };
     delete require.cache[require.resolve(SERVER)];
     require(SERVER)(RED);

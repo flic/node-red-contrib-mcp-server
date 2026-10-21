@@ -10,7 +10,8 @@ const { createAdminTools }           = require('../lib/admin-tools');
 const { toolOk, respond, rpcErr, unknownTool } = require('../lib/tool-result');
 const { handleRpc }                  = require('../lib/mcp-rpc');
 const { requiredScopeChallenge, advertisedScopes,
-        visibleTools, claimAllows }  = require('../lib/claim-gate');
+        visibleTools, claimAllows,
+        gateReadsClaim }             = require('../lib/claim-gate');
 const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
 
 function httpGet(url, headers) {
@@ -136,7 +137,14 @@ module.exports = function (RED) {
             tokenAudience,
             mcpServerUrl    : resourceUrl,
             resourceUrl,
-            gateClaim: requiredClaim, gateClaimRequired: !!requiredValue,
+            gateClaim: requiredClaim,
+            // Asked per token, not fixed here: the admin list and each mcp-in node's own list
+            // read the same claim, and mcp-in nodes register after this runs. Checking only the
+            // server list let a token without the claim hide the admin tools without a word.
+            gateClaimRequired: () => gateReadsClaim({
+                serverValue: requiredValue, adminToolsEnabled, adminValue: adminRequiredValue,
+                tools: node.mcpRegisteredTools
+            }),
             advertisedScopes: advertisedArr.join(' '),
             localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
             localDebugGroups,

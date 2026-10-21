@@ -275,7 +275,7 @@ module.exports = function (RED) {
             pending.resolve(content);
         };
 
-        const { rateLimit, maxBody } = createHttpGuards({ warn: msg => node.warn(msg) });
+        const { rateLimit, maxBody, jsonBody } = createHttpGuards({ warn: msg => node.warn(msg) });
 
         // ── OAuth: protected-resource metadata (RFC 9728) ──────────────────────────
         const protectedResourceHandler = (_req, res) => {
@@ -310,7 +310,8 @@ module.exports = function (RED) {
         };
 
         node.log('mcp-server registering route: POST ' + mcpRoutePath);
-        RED.httpNode.post(mcpRoutePath, ownedHostFilter, rateLimit('mcp', 300), maxBody(1024 * 1024), async (req, res) => {
+        RED.httpNode.post(mcpRoutePath, ownedHostFilter, rateLimit('mcp', 300), maxBody(1024 * 1024),
+            jsonBody(1024 * 1024), async (req, res) => {
             const claims = await requireBearer(req, res);
             if (!claims) return;
             const out = await handleRpc(req.body, claims, rpcDeps);

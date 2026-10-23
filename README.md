@@ -94,10 +94,11 @@ contains `admin`):
   from `/.well-known/openid-configuration`, with PocketID-style fallback paths; leaving this
   empty produces a protected-resource document naming no authorization server, so the editor
   won't let you deploy without it), `Additional scopes` for whatever your provider needs in
-  order to put the access claim in the token, token audience, an optional local debug token that bypasses
-  the IdP entirely for local testing (put any placeholder URL in Identity provider and rely on
-  the debug token — it's never contacted when the debug token matches; the `groups` claim the
-  debug user gets is configurable so the access gates can be tested locally too), and the
+  order to put the access claim in the token, token audience, an optional debug token that bypasses
+  the IdP entirely for setups where OAuth cannot be set up (put any placeholder URL in Identity
+  provider and rely on the debug token — it's never contacted when the debug token matches; the
+  token bypasses authentication on the server's route wherever that is reachable from, grants no
+  `groups` unless configured, and is named in the log at every start while set), and the
   `Access claim` / `Server access` gate (see below).
 - **Admin**: enable/disable admin tools, admin token (for the Node-RED Admin API), admin API
   port, and the `Admin access` gate that additionally restricts just the admin tools.

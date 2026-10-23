@@ -125,10 +125,12 @@ module.exports = function (RED) {
         const scopesArr    = BASE_SCOPES.concat(extraScopes).filter((v, i, a) => a.indexOf(v) === i);
         const advertisedArr = advertisedScopes(scopesArr, requiredScopes);
 
-        // Groups granted to the local debug token (comma-separated, default 'admin'), so gates
-        // with other values can be tested locally. Default only when never set — an explicitly
-        // emptied field means a debug user with no groups at all.
-        const localDebugGroups = (config.localDebugGroups === undefined ? 'admin' : config.localDebugGroups)
+        // Groups granted to the local debug token (comma-separated), so gates with other values
+        // can be tested without an identity provider. None unless written in: the token replaces
+        // OAuth on this server's route, public or not, and admin is not something it should
+        // carry by default.
+        const localDebugToken  = (node.credentials && node.credentials.localDebugToken) || '';
+        const localDebugGroups = (config.localDebugGroups || '')
             .split(',').map(s => s.trim()).filter(Boolean);
 
         const auth = createMcpAuth({
@@ -146,7 +148,7 @@ module.exports = function (RED) {
                 tools: node.mcpRegisteredTools
             }),
             advertisedScopes: advertisedArr.join(' '),
-            localDebugToken : (node.credentials && node.credentials.localDebugToken) || '',
+            localDebugToken,
             localDebugGroups,
             httpGet,
             log  : msg => node.log(msg),
@@ -167,6 +169,20 @@ module.exports = function (RED) {
             adminRoot     : RED.settings.httpAdminRoot,
             getAdminToken : () => (node.credentials && node.credentials.adminToken) || ''
         });
+
+        // Named at every start, so a token left behind after debugging is visible in the log
+        // rather than only in a password field nobody opens. Admin tools sit behind the server
+        // list as well as their own, so both are asked.
+        if (localDebugToken) {
+            const debugClaims = { groups: localDebugGroups };   // the claims validateToken hands out
+            const canDeploy = adminToolsEnabled
+                && claimAllows(debugClaims, requiredClaim, requiredValue)
+                && claimAllows(debugClaims, requiredClaim, adminRequiredValue);
+            node.warn('Local debug token is set — OAuth is bypassed on this MCP server\'s route, '
+                + 'public or not, for groups=' + JSON.stringify(localDebugGroups)
+                + (canDeploy ? ' — this token can deploy flows' : '')
+                + '. Clear the field when OAuth is available.');
+        }
 
         // ── Dynamic tool registry (populated by mcp-in / drained by mcp-out) ───────
         // Null-prototype objects: tool names arrive from remote callers in tools/call, and a

@@ -27,6 +27,11 @@ Requires Node-RED 4.0 or later on Node.js 22 or later.
 >
 > **Minimum versions.** Node-RED 4.0 and Node.js 22 (it was Node-RED 2.2 and Node.js 20.19).
 >
+> **Arguments are validated.** A call whose arguments do not match the tool's schema is refused
+> before the flow runs, where 2.x passed anything on. A schema that described the arguments loosely
+> or wrongly may start refusing calls that used to work; **Validate** on the MCP In node turns it
+> off for that tool.
+>
 > **Smaller changes.** `Access claim` defaults to `sub` on new MCP Server nodes (existing nodes keep
 > their value), and `Debug groups` became `Debug claim values`, given to whichever claim that is.
 > `Path` may be left empty to serve `/mcp` itself.
@@ -64,10 +69,12 @@ Palette names first, with the node type (what flow JSON says) in brackets.
   independent auth configuration.
 - **MCP In** (`ftb-mcp-in`) — defines one MCP tool (name, description, JSON-Schema parameters, and an
   optional per-tool access gate). When an MCP client calls the tool, the node emits a message
-  carrying the call arguments; wire the rest of the flow to do the actual work. The arguments
-  in `msg.payload` are **untrusted caller input** — the JSON schema is documentation for the
-  model, not validation — so the flow must validate and escape them before use in shell
-  commands, file paths, URLs or queries.
+  carrying the call arguments; wire the rest of the flow to do the actual work. Arguments are
+  **checked against the JSON schema** before the flow runs — types, `required`, `enum`,
+  `minimum`/`maximum`, lengths, `pattern`, `items`, `additionalProperties: false` — and a call
+  that does not match is refused with the reason (switchable per node with **Validate**). They
+  are still **caller input**: a string the schema allows can hold anything, so escape it before
+  use in shell commands, file paths, URLs or queries.
 - **MCP Out** (`ftb-mcp-out`) — resolves a pending tool call. Wire the end of your flow here with
   `msg._mcpCallId` intact (from the originating MCP In message) and `msg.payload` set to
   the result.

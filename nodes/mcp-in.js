@@ -27,7 +27,10 @@ module.exports = function (RED) {
         // of that server's own list — empty means this tool adds no restriction of its own.
         const requiredValue = (config.requiredValue || '').trim();
 
-        mcpServer.registerMCPTool(toolName, config.description, schema, timeoutSec, requiredValue, node.id);
+        // On unless switched off: arguments not matching the schema are refused before this flow
+        // runs. Older nodes, saved without the field, get it on too.
+        mcpServer.registerMCPTool(toolName, config.description, schema, timeoutSec, requiredValue, node.id,
+            { validate: config.validateArgs !== false });
 
         const exposeClaims = config.exposeClaims === true;
 

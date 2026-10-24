@@ -154,3 +154,26 @@ describe('lib/mcp-rpc tools/call', function () {
         }
     });
 });
+
+describe('lib/mcp-rpc argument validation', function () {
+    const call = (args, entry) => handleRpc({ id: 9, method: 'tools/call', params: { name: 'tv', arguments: args } },
+        { groups: [] }, deps({ tools: { tv: Object.assign({ description: 'tv', timeoutMs: 1000, requiredValue: '',
+            schema: { type: 'object', required: ['tmdbId'], properties: { tmdbId: { type: 'integer' } } } }, entry) },
+            callTool: async (n, t, a) => 'ran with ' + JSON.stringify(a) }));
+
+    it('refuses arguments that do not match the schema, before the flow runs', async function () {
+        const out = await call({ tmdbId: '../settings' });
+        assert.strictEqual(out.body.result.isError, true);
+        assert.ok(out.body.result.content[0].text.includes('tmdbId must be an integer'), out.body.result.content[0].text);
+    });
+
+    it('passes matching arguments through', async function () {
+        const out = await call({ tmdbId: 7 });
+        assert.deepStrictEqual(out.body.result.content, [{ type: 'text', text: 'ran with {"tmdbId":7}' }]);
+    });
+
+    it('lets a tool registered with validate: false take anything', async function () {
+        const out = await call({ tmdbId: 'x' }, { validate: false });
+        assert.ok(out.body.result.content[0].text.startsWith('ran with'));
+    });
+});

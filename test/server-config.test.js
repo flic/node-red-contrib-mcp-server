@@ -67,6 +67,18 @@ describe('MCP Server path', function () {
     });
 });
 
+describe('MCP Server tool registration', function () {
+    it('validates by default, records an opt-out, and names schema keywords it does not check', function () {
+        const { node, warnings } = loadServer({ path: 'x' });
+        node.registerMCPTool('a', 'A', { type: 'object', properties: { e: { type: 'string', format: 'email' } } }, 30, '', 'n1');
+        node.registerMCPTool('b', 'B', { type: 'object', properties: { e: { anyOf: [] } } }, 30, '', 'n2', { validate: false });
+        assert.strictEqual(node.mcpRegisteredTools.a.validate, true);
+        assert.strictEqual(node.mcpRegisteredTools.b.validate, false);
+        assert.ok(warnings.some(w => w.includes('"a"') && w.includes('format')), warnings.join('\n'));
+        assert.ok(!warnings.some(w => w.includes('"b"')), 'no warning for a tool that does not validate');
+    });
+});
+
 describe('MCP Servers sharing a path', function () {
     // Two server nodes on one router: an unfiltered one, and a filtered one that is restarted —
     // which puts its routes last, behind the unfiltered one.

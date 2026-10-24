@@ -27,6 +27,15 @@
         <label for="node-input-timeout"><i class="fa fa-clock-o"></i> Timeout</label>
         <input type="number" id="node-input-timeout" style="width:80px" min="1" value="30"> seconds
     </div>
+    <div class="form-row">
+        <label for="node-input-validateArgs" style="width:auto"><i class="fa fa-check-square-o"></i> Validate</label>
+        <input type="checkbox" id="node-input-validateArgs" style="width:23px; margin:0">
+        <label for="node-input-validateArgs" style="margin:0; width:auto;"> Refuse calls whose arguments do not match the parameters schema</label>
+    </div>
+    <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
+        <small>Checked before the flow runs: types, required, enum, minimum/maximum, length, pattern, items, and <code>additionalProperties: false</code>. A caller sending text where the schema says integer gets an error, not a request built from it. Turn off only for a tool whose schema cannot describe what it takes.</small>
+    </div>
+
     <hr style="margin:12px 0">
 
     <div class="form-row">
@@ -100,6 +109,7 @@
             topic        : { value: '' },
             timeout      : { value: 30 },
             requiredValue: { value: '' },
+            validateArgs : { value: true },
             exposeClaims : { value: false }
         },
         inputs    : 0,

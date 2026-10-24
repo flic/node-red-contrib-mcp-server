@@ -12,6 +12,7 @@ const { requiredScopeChallenge, advertisedScopes,
         visibleTools,
         gateReadsClaim }             = require('../lib/claim-gate');
 const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
+const { unsupportedKeywords } = require('../lib/schema');
 
 function httpGet(url, headers) {
     return new Promise((resolve, reject) => {
@@ -206,7 +207,17 @@ module.exports = function (RED) {
         node.mcpRegisteredTools = Object.create(null);
         node.mcpPendingCalls    = Object.create(null);
 
-        node.registerMCPTool = function (name, description, schema, timeoutSec, requiredValue, ownerId) {
+        // opts.validate: false lets a tool take arguments its schema does not describe; every
+        // tool's arguments are checked against its schema otherwise (lib/schema.js).
+        node.registerMCPTool = function (name, description, schema, timeoutSec, requiredValue, ownerId, opts) {
+            const validate = !(opts && opts.validate === false);
+            // Said once, at registration: a keyword the validator does not check would otherwise
+            // look like a constraint that holds.
+            const unchecked = validate ? unsupportedKeywords(schema) : [];
+            if (unchecked.length) {
+                node.warn('MCP tool "' + name + '": the input schema uses ' + unchecked.join(', ')
+                    + ', which argument validation does not check. Everything else in it is checked.');
+            }
             // Duplicate tool names are a silent conflict: the registry entry is overwritten but
             // BOTH mcp-in listeners keep firing, so a single call runs two flows and the first
             // mcp-out to answer wins. Surface it loudly instead of debugging it in production.
@@ -221,6 +232,7 @@ module.exports = function (RED) {
                 schema,
                 timeoutMs     : (timeoutSec || 30) * 1000,   // NaN/0 → default, not an instant timeout
                 requiredValue : requiredValue || '',
+                validate,
                 ownerId
             };
         };

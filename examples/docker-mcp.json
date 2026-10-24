@@ -9,7 +9,7 @@
 
   {
     "id": "dk-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Docker",
     "path": "docker",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "dk-in-list",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-docker-mcp",
     "name": "List containers",
     "mcpServer": "dk-server",
@@ -59,7 +59,7 @@
   },
   {
     "id": "dk-out-list",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-docker-mcp",
     "name": "",
     "mcpServer": "dk-server",
@@ -70,7 +70,7 @@
 
   {
     "id": "dk-in-start",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-docker-mcp",
     "name": "Start container",
     "mcpServer": "dk-server",
@@ -100,7 +100,7 @@
   },
   {
     "id": "dk-out-start",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-docker-mcp",
     "name": "",
     "mcpServer": "dk-server",
@@ -111,7 +111,7 @@
 
   {
     "id": "dk-in-stop",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-docker-mcp",
     "name": "Stop container",
     "mcpServer": "dk-server",
@@ -141,7 +141,7 @@
   },
   {
     "id": "dk-out-stop",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-docker-mcp",
     "name": "",
     "mcpServer": "dk-server",
@@ -152,7 +152,7 @@
 
   {
     "id": "dk-in-restart",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-docker-mcp",
     "name": "Restart container",
     "mcpServer": "dk-server",
@@ -182,7 +182,7 @@
   },
   {
     "id": "dk-out-restart",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-docker-mcp",
     "name": "",
     "mcpServer": "dk-server",
@@ -193,7 +193,7 @@
 
   {
     "id": "dk-in-logs",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-docker-mcp",
     "name": "Get logs",
     "mcpServer": "dk-server",
@@ -223,7 +223,7 @@
   },
   {
     "id": "dk-out-logs",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-docker-mcp",
     "name": "",
     "mcpServer": "dk-server",

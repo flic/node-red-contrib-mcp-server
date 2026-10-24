@@ -1,4 +1,4 @@
-<script type="text/html" data-template-name="mcp-call">
+<script type="text/html" data-template-name="ftb-mcp-call">
     <div class="form-row">
         <label for="node-input-mcpServer" style="width:95px; padding-right:10px;"><i class="fa fa-server"></i> MCP Server</label>
         <input type="text" id="node-input-mcpServer" style="width:calc(100% - 125px)">
@@ -12,14 +12,9 @@
         <input type="text" id="node-input-field" style="width:calc(100% - 125px)">
         <input type="hidden" id="node-input-fieldType">
     </div>
-    <div class="form-row">
-        <label for="node-input-allowAdminTools" style="width:auto"><i class="fa fa-shield"></i> Allow admin tools</label>
-        <input type="checkbox" id="node-input-allowAdminTools" style="display: inline-block; width: auto; vertical-align: top;">
-    </div>
-    <div class="form-tips">Admin tools (<code>get_flow</code>, <code>deploy_flow</code>) also need them enabled on the server <i>and</i> an admin claim on <code>msg.claims</code>. Leave off unless the flow holding this node is trusted.</div>
 </script>
 
-<script type="text/html" data-help-name="mcp-call">
+<script type="text/html" data-help-name="ftb-mcp-call">
     <p><strong>This is not an MCP client.</strong> It speaks no MCP protocol, opens no connection,
     and cannot reach a server anywhere else — not a remote one, not another Node-RED, not even this
     server's own HTTP route. It is the back door into your <em>own</em> tools: it calls the
@@ -48,7 +43,7 @@
     per tool, in the shape <code>tools/list</code> answers with. It is read straight from that
     server's registry, so it lists the <code>mcp-in</code> nodes deployed in this Node-RED right
     now — and since those are the only definition your tools have, this is usually the only index
-    of them there is. Admin tools are left out.</p>
+    of them there is.</p>
 
     <h3>Output</h3>
     <p>The response envelope is written to the property configured in <strong>Property</strong>
@@ -67,20 +62,18 @@
     <p>That is deliberate rather than a hole. A flow node is already inside the trust boundary —
     whoever can edit flows can edit the tool itself — so a gate here would guard nothing while
     suggesting it guarded something. But do not treat this node as a way to re-expose a gated tool:
-    if the message reaching it came from outside, the gate is yours to reproduce.</p>
-    <p>Admin tools are the exception and keep the route's rule: enabled on the server, enabled on
-    this node, <em>and</em> an admin claim on <code>msg.claims</code>. The checkbox alone is never
-    sufficient.</p>
+    if the message reaching it came from outside, the gate is yours to reproduce. That includes the
+    tools of an <code>MCP Admin</code> node, which are registered like any other: a flow that can
+    reach them can change your flows.</p>
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('mcp-call', {
+    RED.nodes.registerType('ftb-mcp-call', {
         category: 'MCP',
         color: '#b3b3ff',
         defaults: {
-            mcpServer:       { value: '', type: 'mcp-server', required: true },
+            mcpServer:       { value: '', type: 'ftb-mcp-server', required: true },
             name:            { value: '' },
-            allowAdminTools: { value: false },
             field:           { value: 'payload' },
             fieldType:       { value: 'msg' }
         },

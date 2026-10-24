@@ -9,7 +9,7 @@
 
   {
     "id": "sr-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Overseerr",
     "path": "seerr",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "sr-in-search",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Search",
     "mcpServer": "sr-server",
@@ -91,7 +91,7 @@
   },
   {
     "id": "sr-out-search",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",
@@ -102,7 +102,7 @@
 
   {
     "id": "sr-in-request",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Request media",
     "mcpServer": "sr-server",
@@ -164,7 +164,7 @@
   },
   {
     "id": "sr-out-request",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",
@@ -175,7 +175,7 @@
 
   {
     "id": "sr-in-get-requests",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Get requests",
     "mcpServer": "sr-server",
@@ -335,7 +335,7 @@
   },
   {
     "id": "sr-out-get-requests",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",
@@ -346,7 +346,7 @@
 
   {
     "id": "sr-in-count",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Request count",
     "mcpServer": "sr-server",
@@ -408,7 +408,7 @@
   },
   {
     "id": "sr-out-count",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",
@@ -419,7 +419,7 @@
 
   {
     "id": "sr-in-get-tv",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Get TV details",
     "mcpServer": "sr-server",
@@ -481,7 +481,7 @@
   },
   {
     "id": "sr-out-get-tv",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",
@@ -492,7 +492,7 @@
 
   {
     "id": "sr-in-get-movie",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Get movie details",
     "mcpServer": "sr-server",
@@ -554,7 +554,7 @@
   },
   {
     "id": "sr-out-get-movie",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",
@@ -565,7 +565,7 @@
 
   {
     "id": "sr-in-get-season",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-seerr-mcp",
     "name": "Get season episodes",
     "mcpServer": "sr-server",
@@ -627,7 +627,7 @@
   },
   {
     "id": "sr-out-get-season",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-seerr-mcp",
     "name": "",
     "mcpServer": "sr-server",

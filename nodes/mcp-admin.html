@@ -1,0 +1,181 @@
+<script type="text/html" data-template-name="ftb-mcp-admin">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-mcpServer"><i class="fa fa-server"></i> MCP Server</label>
+        <input type="text" id="node-input-mcpServer">
+    </div>
+    <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
+        <small>Give this node a server of its own (for example path <code>nodered</code>). Its tools then sit behind that server's gates alone, and which clients may administer Node-RED is one resource at your identity provider.</small>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-instanceName"><i class="fa fa-id-badge"></i> Instance</label>
+        <input type="text" id="node-input-instanceName" placeholder="(defaults to the host in the MCP Server's Server URL)" style="width:calc(100% - 105px)">
+    </div>
+    <div class="form-row">
+        <label for="node-input-instanceDescription" style="vertical-align:top; margin-top:4px"><i class="fa fa-comment"></i> Description</label>
+        <textarea id="node-input-instanceDescription" rows="2" style="width:calc(100% - 105px);" placeholder="What runs on this Node-RED, e.g. home automation for the house: Zigbee, Matter, music."></textarea>
+    </div>
+    <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
+        <small>Tells a client which Node-RED this is &mdash; it may hold the same tools for several. Sent on connect, and the instance is named in every answer that changes something and on the output.</small>
+    </div>
+
+    <hr style="margin:12px 0">
+
+    <div class="form-row">
+        <label style="vertical-align:top"><i class="fa fa-th-list"></i> Tools</label>
+        <div style="display:inline-block; width:calc(100% - 105px)">
+            <label style="width:auto"><input type="checkbox" id="node-input-groupRead" style="width:auto; margin:0 6px 0 0"> <b>Read</b> &mdash; list_flows, get_flow, get_node, find_nodes, get_context, get_runtime, validate, list_snapshots</label><br>
+            <label style="width:auto"><input type="checkbox" id="node-input-groupFlows" style="width:auto; margin:0 6px 0 0"> <b>Flows</b> &mdash; patch_nodes, add_nodes, remove_nodes, create_flow, delete_flow, set_flow_enabled, rollback</label><br>
+            <label style="width:auto"><input type="checkbox" id="node-input-groupTest" style="width:auto; margin:0 6px 0 0"> <b>Test</b> &mdash; inject, get_debug</label><br>
+            <label style="width:auto"><input type="checkbox" id="node-input-groupContext" style="width:auto; margin:0 6px 0 0"> <b>Context</b> &mdash; delete_context</label>
+        </div>
+    </div>
+    <div class="form-row">
+        <label for="node-input-writeRequiredValue"><i class="fa fa-pencil"></i> Write access</label>
+        <input type="text" id="node-input-writeRequiredValue" placeholder="(empty = the server's gate only)" style="width:calc(100% - 105px)">
+    </div>
+    <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
+        <small>Comma-separated values, matched against the <b>Access claim</b> set on the selected MCP Server (now <span id="mcp-admin-claim-name"><code>sub</code></span>; change it there). Required on top of the server's own <b>Server access</b> list for every tool that changes something; read tools need only the server's gate.</small>
+    </div>
+    <div class="form-row">
+        <label for="node-input-maskSecrets" style="width:auto"><i class="fa fa-eye-slash"></i> Mask secrets</label>
+        <input type="checkbox" id="node-input-maskSecrets" style="width:23px; margin:0">
+        <label for="node-input-maskSecrets" style="margin:0; width:auto;"> Answer secrets as «masked: N chars»</label>
+    </div>
+    <div class="form-row">
+        <label for="node-input-maskExtra"><i class="fa fa-plus"></i> Also mask</label>
+        <input type="text" id="node-input-maskExtra" placeholder="e.g. ical-config.url" style="width:calc(100% - 105px)">
+    </div>
+    <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
+        <small>Masked by name: properties, context keys and URL parameters called token, secret, password, api key, credential, cookie and the like, and passwords in URLs. <b>Also mask</b> adds comma-separated <code>type.property</code> entries that no name gives away, such as a private calendar link. A secret written into function code cannot be told from code &mdash; keep those in credentials or environment variables.</small>
+    </div>
+    <div class="form-row">
+        <label for="node-input-snapshots"><i class="fa fa-history"></i> Snapshots</label>
+        <input type="number" id="node-input-snapshots" style="width:80px" min="1" value="50"> kept, taken before each write
+    </div>
+
+    <hr style="margin:12px 0">
+
+    <div class="form-row">
+        <label for="node-input-adminToken"><i class="fa fa-key"></i> Admin token</label>
+        <input type="password" id="node-input-adminToken" autocomplete="off" style="width:calc(100% - 105px)">
+    </div>
+    <div class="form-tips" style="margin-left:105px;">
+        <small>The tools call this Node-RED's own Admin API with this token &mdash; on the port, address and scheme settings.js gives Node-RED, under <code>httpAdminRoot</code>. What the token's user is permitted is what the tools can do; see the help for the settings.js entry.</small>
+    </div>
+</script>
+
+<script type="text/html" data-help-name="ftb-mcp-admin">
+    <p>Administer this Node-RED over MCP: read and search flows, change them node by node, test
+    them, and undo. The tools register on the <code>MCP Server</code> chosen above, exactly like
+    <b>MCP In</b> tools, and sit behind that server's authentication and gates. The node also tells
+    connecting clients how the tools are meant to be used together, so the server needs no
+    instructions of its own.</p>
+
+    <h3>How writes work</h3>
+    <p>Every change reads the flows with their revision, changes a copy, validates it, snapshots
+    the deployed state and deploys with that revision. Only the changed nodes restart. If someone
+    deployed in between, the change is refused rather than overwriting theirs. Validation refuses
+    wires into nothing, references emptied or left dangling (a config node removed while in use,
+    a patch that blanked one), nodes outside any flow, duplicate ids and types the runtime does not
+    know. <code>dry_run</code> on any write reports what would change without deploying.</p>
+    <p>Snapshots are files under <code>&lt;userDir&gt;/.mcp-admin/&lt;node id&gt;/</code>.
+    <code>rollback</code> restores one. They hold configuration, never credentials: nodes that
+    still exist keep theirs, a node recreated by a rollback comes back without them.</p>
+
+    <h3>Secrets</h3>
+    <p>Node credentials never leave Node-RED's credential store, and the Admin API does not serve
+    them. But secrets also live where it does not look: plain node properties (some nodes keep a
+    password or a private URL there), context values a flow saved (OAuth tokens), URLs with a
+    password or a token parameter. With <b>Mask secrets</b> on, every read answers those as
+    <code>«masked: N chars»</code>, and every write refuses a masked value, so a placeholder can
+    never overwrite the real one.</p>
+
+    <h3>Outputs</h3>
+    <p>Two, so a notification and a log need no filtering. <code>msg.topic</code> is
+    <code>mcp-admin/&lt;tool&gt;</code> on both, and <code>sub</code> and <code>client</code> come
+    from the caller's token (both null for calls from <code>mcp-call</code>).</p>
+    <p><b>1 &mdash; changes.</b> One message per change, refused ones included:
+    <code>msg.payload</code> =
+    <code>{ time, event, tool, instance, sub, client, summary, changed, rev, snapshot }</code>.
+    <code>event</code> is <code>deployed</code>, <code>rejected</code> (with <code>reason</code>
+    <code>validation</code>, <code>conflict</code> or <code>own-server</code>), <code>injected</code>,
+    or <code>context-deleted</code>. Reads send nothing here.</p>
+    <p><b>2 &mdash; every call.</b> One message per tool call, reads included:
+    <code>{ time, tool, instance, sub, client, args, ok, error, durationMs }</code>. <code>args</code>
+    is a summary (long strings cut, long arrays counted), not a copy of what a patch carried.</p>
+
+    <h3>The admin token</h3>
+    <p>The tools call this Node-RED's Admin API with the <b>Admin token</b> set on this node, and
+    Node-RED accepts it only if <code>settings.js</code> knows it. What the token is allowed to do
+    there is what the tools can do. To set it up:</p>
+    <ol>
+        <li>Make up a long random token, e.g. <code>openssl rand -hex 32</code>, and give it to
+        Node-RED as an environment variable (<code>NODERED_ADMIN_API_TOKEN</code> below).</li>
+        <li>In <code>settings.js</code>, add a <code>tokens</code> function to <code>adminAuth</code>
+        that maps that token to a user of its own, with only the permissions the groups you enabled
+        need. The user is made up on the spot: it needs no entry in <code>users</code>, so no one
+        can log in to the editor as it.</li>
+        <li>Restart Node-RED, and paste the same token into <b>Admin token</b> here.</li>
+    </ol>
+<pre>tokens: t => Promise.resolve(t === process.env.NODERED_ADMIN_API_TOKEN
+  ? { username: "mcp-admin", permissions: [
+      "flows.read", "nodes.read", "settings.read", "diagnostics.read", "context.read",
+      "projects.read",                  // Read: get_runtime names the active project
+      "flows.write",                    // Flows
+      "inject.write", "status.read",    // Test (status.read lets get_debug connect)
+      "context.write"                   // Context
+    ] } : null)</pre>
+    <p>A tool whose permission the token lacks answers with an error naming that permission.</p>
+    <p>Deliberately not offered: installing or removing node modules, and stopping or starting the
+    flows &mdash; stopping them stops the MCP server serving these tools, and nothing could start
+    them again from here. For the same reason a write that changes the MCP server these tools are
+    served by is refused; change the server in the editor.</p>
+
+    <h3>Reaching these tools from a flow</h3>
+    <p><code>mcp-call</code> reaches them like any other tool on the server: without a token, past
+    the gates. A flow that can reach them can change your flows.</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('ftb-mcp-admin', {
+        category: 'MCP',
+        color: '#b3b3ff',
+        defaults: {
+            name              : { value: '' },
+            mcpServer         : { value: '', type: 'ftb-mcp-server', required: true },
+            instanceName      : { value: '' },
+            instanceDescription: { value: '' },
+            groupRead         : { value: true },
+            groupFlows        : { value: false },
+            groupTest         : { value: false },
+            groupContext      : { value: false },
+            writeRequiredValue: { value: '' },
+            snapshots         : { value: 50 },
+            maskSecrets       : { value: true },
+            maskExtra         : { value: '' }
+        },
+        credentials: {
+            adminToken: { type: 'password' }
+        },
+        inputs : 0,
+        outputs: 2,
+        outputLabels: ['changes', 'every call'],
+        icon   : 'font-awesome/fa-wrench',
+        paletteLabel: 'MCP Admin',
+        label  : function () { return this.name || (this.instanceName ? 'MCP Admin: ' + this.instanceName : 'MCP Admin'); },
+        oneditprepare: function () {
+            function updateClaimName() {
+                var server = RED.nodes.node($('#node-input-mcpServer').val());
+                var claim  = (server && server.requiredClaim) || 'sub';
+                $('#mcp-admin-claim-name').html($('<code>').text(claim));
+            }
+            $('#node-input-mcpServer').on('change', updateClaimName);
+            updateClaimName();
+        }
+    });
+</script>

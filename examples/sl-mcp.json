@@ -8,7 +8,7 @@
     },
     {
         "id": "sl-server",
-        "type": "mcp-server",
+        "type": "ftb-mcp-server",
         "name": "SL",
         "path": "sl",
         "serverUrl": "",
@@ -29,7 +29,7 @@
     },
     {
         "id": "sl-in-find-stop",
-        "type": "mcp-in",
+        "type": "ftb-mcp-in",
         "z": "sl-tab",
         "name": "Find stop",
         "mcpServer": "sl-server",
@@ -69,7 +69,7 @@
     },
     {
         "id": "sl-out-find-stop",
-        "type": "mcp-out",
+        "type": "ftb-mcp-out",
         "z": "sl-tab",
         "name": "",
         "mcpServer": "sl-server",
@@ -79,7 +79,7 @@
     },
     {
         "id": "sl-in-departures",
-        "type": "mcp-in",
+        "type": "ftb-mcp-in",
         "z": "sl-tab",
         "name": "Departures",
         "mcpServer": "sl-server",
@@ -119,7 +119,7 @@
     },
     {
         "id": "sl-out-departures",
-        "type": "mcp-out",
+        "type": "ftb-mcp-out",
         "z": "sl-tab",
         "name": "",
         "mcpServer": "sl-server",
@@ -129,7 +129,7 @@
     },
     {
         "id": "sl-in-deviations",
-        "type": "mcp-in",
+        "type": "ftb-mcp-in",
         "z": "sl-tab",
         "name": "Deviations",
         "mcpServer": "sl-server",
@@ -169,7 +169,7 @@
     },
     {
         "id": "sl-out-deviations",
-        "type": "mcp-out",
+        "type": "ftb-mcp-out",
         "z": "sl-tab",
         "name": "",
         "mcpServer": "sl-server",
@@ -179,7 +179,7 @@
     },
     {
         "id": "sl-in-plan-trip",
-        "type": "mcp-in",
+        "type": "ftb-mcp-in",
         "z": "sl-tab",
         "name": "Plan trip",
         "mcpServer": "sl-server",
@@ -219,7 +219,7 @@
     },
     {
         "id": "sl-out-plan-trip",
-        "type": "mcp-out",
+        "type": "ftb-mcp-out",
         "z": "sl-tab",
         "name": "",
         "mcpServer": "sl-server",

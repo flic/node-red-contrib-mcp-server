@@ -1,4 +1,4 @@
-<script type="text/html" data-template-name="mcp-in">
+<script type="text/html" data-template-name="ftb-mcp-in">
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
@@ -34,7 +34,7 @@
         <input type="text" id="node-input-requiredValue" placeholder="(empty = no extra restriction)" style="width:calc(100% - 105px)">
     </div>
     <div class="form-tips" style="margin-left:105px; margin-bottom:8px;">
-        <small>Per-tool access gate. Comma-separated values of the MCP Server node's <b>Access claim</b> (<span id="mcp-in-claim-name"><code>groups</code></span>) — the caller's claim must contain <b>at least one</b> of them for this tool to be listed or callable. Applied <b>on top of</b> that server's own <b>Server access</b> list, not instead of it: callers must clear both.</small>
+        <small>Per-tool access gate. Comma-separated values of the MCP Server node's <b>Access claim</b> (<span id="mcp-in-claim-name"><code>sub</code></span>) — the caller's claim must contain <b>at least one</b> of them for this tool to be listed or callable. Applied <b>on top of</b> that server's own <b>Server access</b> list, not instead of it: callers must clear both.</small>
     </div>
 
     <hr style="margin:12px 0">
@@ -49,7 +49,7 @@
     </div>
 </script>
 
-<script type="text/html" data-help-name="mcp-in">
+<script type="text/html" data-help-name="ftb-mcp-in">
     <p>Defines one MCP tool. When an MCP client calls it, this node fires a message out of
     its single output — there's nothing to wire into it, it's a call trigger, not a regular
     flow step.</p>
@@ -88,12 +88,12 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('mcp-in', {
+    RED.nodes.registerType('ftb-mcp-in', {
         category: 'MCP',
         color: '#b3b3ff',
         defaults  : {
             name         : { value: '' },
-            mcpServer    : { value: '', type: 'mcp-server', required: true },
+            mcpServer    : { value: '', type: 'ftb-mcp-server', required: true },
             toolName     : { value: '', required: true },
             description  : { value: '' },
             inputSchema  : { value: '' },
@@ -112,7 +112,7 @@
             // typed here are values *of that claim*, and it is configured on a different node.
             function updateClaimName() {
                 var server = RED.nodes.node($('#node-input-mcpServer').val());
-                var claim  = (server && server.requiredClaim) || 'groups';
+                var claim  = (server && server.requiredClaim) || 'sub';
                 $('#mcp-in-claim-name').html($('<code>').text(claim));
             }
             $('#node-input-mcpServer').on('change', updateClaimName);

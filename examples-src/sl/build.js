@@ -108,7 +108,7 @@ const nodes = [
             + 'Requires Node-RED >= 5.0 (function nodes call the shared HTTP subroutine with node.linkcall).',
     },
     {
-        id: SERVER, type: 'mcp-server', name: 'SL', path: 'sl', serverUrl: '', filterHost: false,
+        id: SERVER, type: 'ftb-mcp-server', name: 'SL', path: 'sl', serverUrl: '', filterHost: false,
         serverName: '', instructions, issuerUrl: '', extraScopes: '', audience: '', tokenCacheTTL: 300,
         localDebugGroups: '', requiredClaim: 'groups', requiredValue: '', requiredScope: '',
         adminToolsEnabled: false, adminPort: 1880, adminRequiredValue: 'admin',
@@ -119,7 +119,7 @@ let y = 60;
 for (const t of tools) {
     nodes.push(
         {
-            id: `sl-in-${t.id}`, type: 'mcp-in', z: Z, name: t.name, mcpServer: SERVER, toolName: t.tool,
+            id: `sl-in-${t.id}`, type: 'ftb-mcp-in', z: Z, name: t.name, mcpServer: SERVER, toolName: t.tool,
             description: t.description, inputSchema: JSON.stringify(t.schema), topic: '', timeout: 30,
             requiredValue: '', x: 140, y, wires: [[`sl-fn-${t.id}`]],
         },
@@ -127,7 +127,7 @@ for (const t of tools) {
             id: `sl-fn-${t.id}`, type: 'function', z: Z, name: t.tool, func: runner(t.tool), outputs: 1,
             timeout: 0, noerr: 0, initialize: '', finalize: '', libs: [], x: 380, y, wires: [[`sl-out-${t.id}`]],
         },
-        { id: `sl-out-${t.id}`, type: 'mcp-out', z: Z, name: '', mcpServer: SERVER, x: 600, y, wires: [] },
+        { id: `sl-out-${t.id}`, type: 'ftb-mcp-out', z: Z, name: '', mcpServer: SERVER, x: 600, y, wires: [] },
     );
     y += 60;
 }

@@ -38,5 +38,5 @@ module.exports = function (RED) {
         });
     }
 
-    RED.nodes.registerType('mcp-out', McpOut);
+    RED.nodes.registerType('ftb-mcp-out', McpOut);
 };

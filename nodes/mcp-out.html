@@ -1,4 +1,4 @@
-<script type="text/html" data-template-name="mcp-out">
+<script type="text/html" data-template-name="ftb-mcp-out">
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
@@ -13,7 +13,7 @@
     </div>
 </script>
 
-<script type="text/html" data-help-name="mcp-out">
+<script type="text/html" data-help-name="ftb-mcp-out">
     <p>Resolves a pending tool call started by an <code>mcp-in</code> node, sending the
     result back to the waiting MCP client. This is a terminal node — it has no output.</p>
     <p>The input message must carry <code>msg._mcpCallId</code> unchanged from the
@@ -39,12 +39,12 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('mcp-out', {
+    RED.nodes.registerType('ftb-mcp-out', {
         category: 'MCP',
         color: '#b3b3ff',
         defaults  : {
             name        : { value: '' },
-            mcpServer   : { value: '', type: 'mcp-server', required: true },
+            mcpServer   : { value: '', type: 'ftb-mcp-server', required: true },
             emptyMessage: { value: 'No results found.' }
         },
         inputs    : 1,

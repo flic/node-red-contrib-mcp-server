@@ -28,7 +28,7 @@ function loadServer(config) {
     const RED = {
         nodes: {
             createNode(node, cfg) { node.id = cfg.id; },
-            registerType: (name, fn) => { if (name === 'mcp-server') registered = fn; }
+            registerType: (name, fn) => { if (name === 'ftb-mcp-server') registered = fn; }
         },
         httpNode: { get: () => {}, post: () => {}, _router: { stack: [] } },
         // A real runtime always has settings; httpAdminRoot normalised as Node-RED does.
@@ -88,36 +88,14 @@ describe('mcp-server callTool', function () {
         assert.strictEqual(out.ok, true);
     });
 
-    it('lists the registry, gated tools included, admin tools excluded', async function () {
-        const node = loadServer({ adminToolsEnabled: true });
+    it('lists the registry, gated tools included', async function () {
+        const node = loadServer({});
         node.registerMCPTool('open',  'Open',       { q: { type: 'string' } }, 30, '',    'in1');
         node.registerMCPTool('gated', 'Restricted', {},                        30, 'ops', 'in2');
         const names = node.listTools().map(t => t.name).sort();
         assert.deepStrictEqual(names, ['gated', 'open']);
         assert.deepStrictEqual(node.listTools().find(t => t.name === 'open').inputSchema,
                                { type: 'object', properties: { q: { type: 'string' } } });
-    });
-});
-
-describe('mcp-server callTool — admin tools', function () {
-    // Three cases, because "the flag alone was enough" is the failure that matters.
-    it('is unreachable when the server has them disabled', async function () {
-        const node = loadServer({ adminToolsEnabled: false });
-        const out = await node.callTool('get_flow', {}, { groups: ['admin'] }, { adminEnabled: true });
-        assert.strictEqual(out.code, -32601);
-    });
-
-    it('is unreachable when the calling node has not opted in', async function () {
-        const node = loadServer({ adminToolsEnabled: true });
-        const out = await node.callTool('get_flow', {}, { groups: ['admin'] }, { adminEnabled: false });
-        assert.strictEqual(out.code, -32601);
-    });
-
-    it('is refused without an admin claim, even with both opt-ins', async function () {
-        const node = loadServer({ adminToolsEnabled: true });
-        const out = await node.callTool('get_flow', {}, { groups: ['staff'] }, { adminEnabled: true });
-        assert.strictEqual(out.ok, false);
-        assert.ok(out.message.includes('admin'), out.message);
     });
 });
 

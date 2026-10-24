@@ -9,7 +9,7 @@
 
   {
     "id": "jf-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Jellyfin",
     "path": "jellyfin",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "jf-in-search",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-jellyfin-mcp",
     "name": "Search media",
     "mcpServer": "jf-server",
@@ -91,7 +91,7 @@
   },
   {
     "id": "jf-out-search",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-jellyfin-mcp",
     "name": "",
     "mcpServer": "jf-server",
@@ -101,7 +101,7 @@
   },
   {
     "id": "jf-in-poster",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-jellyfin-mcp",
     "name": "Get poster",
     "mcpServer": "jf-server",
@@ -163,7 +163,7 @@
   },
   {
     "id": "jf-out-poster",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-jellyfin-mcp",
     "name": "",
     "mcpServer": "jf-server",

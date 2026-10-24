@@ -305,8 +305,8 @@ describe('advertisedScopes', function () {
 describe('lib/claim-gate gateReadsClaim', function () {
     // Decides whether a token without the claim is worth a warning. Every gate that reads the
     // claim counts, not just the whole-server list: with that list empty, a token without the
-    // claim used to hide the admin tools with nothing in the log.
-    const none = { serverValue: '', adminToolsEnabled: false, adminValue: 'admin', tools: {} };
+    // claim would hide every tool with a list of its own, with nothing in the log.
+    const none = { serverValue: '', tools: {} };
 
     it('is false when no gate has a list', function () {
         assert.strictEqual(gateReadsClaim(none), false);
@@ -315,11 +315,6 @@ describe('lib/claim-gate gateReadsClaim', function () {
 
     it('counts the whole-server list', function () {
         assert.strictEqual(gateReadsClaim(Object.assign({}, none, { serverValue: 'ops' })), true);
-    });
-
-    it('counts the admin list only while admin tools are on', function () {
-        assert.strictEqual(gateReadsClaim(Object.assign({}, none, { adminToolsEnabled: true })), true);
-        assert.strictEqual(gateReadsClaim(Object.assign({}, none, { adminToolsEnabled: true, adminValue: '' })), false);
     });
 
     it('counts a registered tool with its own list', function () {

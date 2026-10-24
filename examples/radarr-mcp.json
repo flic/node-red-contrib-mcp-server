@@ -9,7 +9,7 @@
 
   {
     "id": "rdr-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Radarr",
     "path": "radarr",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "rdr-in-search",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-radarr-mcp",
     "name": "Search movies",
     "mcpServer": "rdr-server",
@@ -91,7 +91,7 @@
   },
   {
     "id": "rdr-out-search",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-radarr-mcp",
     "name": "",
     "mcpServer": "rdr-server",
@@ -102,7 +102,7 @@
 
   {
     "id": "rdr-in-get-movie",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-radarr-mcp",
     "name": "Get movie",
     "mcpServer": "rdr-server",
@@ -164,7 +164,7 @@
   },
   {
     "id": "rdr-out-get-movie",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-radarr-mcp",
     "name": "",
     "mcpServer": "rdr-server",

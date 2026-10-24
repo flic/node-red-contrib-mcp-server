@@ -9,7 +9,7 @@
 
   {
     "id": "cw-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Calibre",
     "path": "calibre",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "cw-in-search",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-calibre-mcp",
     "name": "Search books",
     "mcpServer": "cw-server",
@@ -91,7 +91,7 @@
   },
   {
     "id": "cw-out-search",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-calibre-mcp",
     "name": "",
     "mcpServer": "cw-server",
@@ -102,7 +102,7 @@
 
   {
     "id": "cw-in-stats",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-calibre-mcp",
     "name": "Stats",
     "mcpServer": "cw-server",
@@ -164,7 +164,7 @@
   },
   {
     "id": "cw-out-stats",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-calibre-mcp",
     "name": "",
     "mcpServer": "cw-server",
@@ -175,7 +175,7 @@
 
   {
     "id": "cw-in-toggle",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-calibre-mcp",
     "name": "Toggle read",
     "mcpServer": "cw-server",
@@ -237,7 +237,7 @@
   },
   {
     "id": "cw-out-toggle",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-calibre-mcp",
     "name": "",
     "mcpServer": "cw-server",
@@ -248,7 +248,7 @@
 
   {
     "id": "cw-in-cover",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-calibre-mcp",
     "name": "Get cover",
     "mcpServer": "cw-server",
@@ -310,7 +310,7 @@
   },
   {
     "id": "cw-out-cover",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-calibre-mcp",
     "name": "",
     "mcpServer": "cw-server",
@@ -321,7 +321,7 @@
 
   {
     "id": "cw-in-recent",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-calibre-mcp",
     "name": "Recent books",
     "mcpServer": "cw-server",
@@ -383,7 +383,7 @@
   },
   {
     "id": "cw-out-recent",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-calibre-mcp",
     "name": "",
     "mcpServer": "cw-server",

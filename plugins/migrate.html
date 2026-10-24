@@ -1,0 +1,66 @@
+<script src="resources/@frtnbach/node-red-contrib-mcp-server/migrate.js"></script>
+<script type="text/javascript">
+(function () {
+    // Offers the 2.x → 3.x type rename once flows are loaded. Read and written through the
+    // runtime's own Admin API (GET/POST flows, v2), not the editor's workspace: the rename is
+    // then a normal deploy with a revision check, and nothing depends on how the editor
+    // represents nodes whose type it has no definition for — which is what the legacy names are.
+    var API_HEADERS = { 'Node-RED-API-Version': 'v2' };
+    var notification = null;
+
+    function fail(message) {
+        RED.notify('MCP: ' + message, { type: 'error', timeout: 10000 });
+    }
+
+    function convert() {
+        if (RED.nodes.dirty()) {
+            fail('deploy or discard your changes before converting.');
+            return;
+        }
+        $.ajax({ url: 'flows', headers: API_HEADERS, dataType: 'json' }).done(function (current) {
+            var result = window.ftbMcpMigrate.migrateFlows(current.flows);
+            if (!result.changed.length) { if (notification) { notification.close(); } return; }
+            $.ajax({
+                url        : 'flows',
+                method     : 'POST',
+                contentType: 'application/json',
+                // Only the renamed nodes restart. A revision that moved on since the read is
+                // rejected with 409 rather than overwritten.
+                headers    : $.extend({ 'Node-RED-Deployment-Type': 'nodes' }, API_HEADERS),
+                data       : JSON.stringify({ rev: current.rev, flows: result.flows })
+            }).done(function () {
+                if (notification) { notification.close(); }
+                RED.notify('MCP: converted ' + result.changed.length + ' node(s). Reloading the editor…',
+                    { type: 'success' });
+                setTimeout(function () { window.location.reload(); }, 1500);
+            }).fail(function (xhr) {
+                fail(xhr.status === 409
+                    ? 'the flows changed while converting. Reload the editor and try again.'
+                    : 'conversion failed (' + xhr.status + ').');
+            });
+        }).fail(function (xhr) { fail('could not read the flows (' + xhr.status + ').'); });
+    }
+
+    function check() {
+        $.ajax({ url: 'flows', headers: API_HEADERS, dataType: 'json' }).done(function (current) {
+            var count = window.ftbMcpMigrate.migrateFlows(current.flows).changed.length;
+            if (!count || notification) { return; }
+            notification = RED.notify(
+                '<p><strong>MCP server 3.x</strong></p><p>' + count + ' node(s) use the 2.x type names ' +
+                '(mcp-server, mcp-in, mcp-out, mcp-call). They still run, but the editor cannot ' +
+                'edit them, and 4.0.0 removes the old names.</p>', {
+                    type   : 'warning',
+                    fixed  : true,
+                    buttons: [
+                        { text: 'Later',   click: function () { notification.close(); notification = null; } },
+                        { text: 'Convert', class: 'primary', click: convert }
+                    ]
+                });
+        });
+    }
+
+    RED.plugins.registerPlugin('ftb-mcp-migrate', {
+        onadd: function () { RED.events.on('flows:loaded', check); }
+    });
+})();
+</script>

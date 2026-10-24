@@ -1,4 +1,4 @@
-<script type="text/html" data-template-name="mcp-server">
+<script type="text/html" data-template-name="ftb-mcp-server">
     <ul style="min-width: 600px; margin-bottom: 20px;" id="mcpsrv-tabs"></ul>
     <div id="mcpsrv-tabs-content" style="min-height: calc(100% - 95px);">
 
@@ -10,10 +10,13 @@
             </div>
             <div class="form-row">
                 <label for="node-config-input-path" style="width:150px"><i class="fa fa-link"></i> Path</label>
-                <input type="text" id="node-config-input-path" placeholder="jellyfin" style="width:calc(100% - 185px)">
+                <input type="text" id="node-config-input-path" placeholder="(empty = /mcp)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;" id="mcpsrv-path-hint">
-                <small>Registers endpoint: POST /mcp/&lt;path&gt;</small>
+                <small>Registers endpoint: POST /mcp</small>
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Empty serves this server at <code>/mcp</code> itself &mdash; natural when it has a hostname of its own. Turn on the hostname filter below then, so it does not claim <code>/mcp</code> for every hostname this Node-RED answers.</small>
             </div>
             <div class="form-row">
                 <label for="node-config-input-serverUrl" style="width:150px"><i class="fa fa-globe"></i> Server URL</label>
@@ -33,11 +36,14 @@
             </div>
             <div class="form-row">
                 <label for="node-config-input-serverName" style="width:150px"><i class="fa fa-server"></i> Server name</label>
-                <input type="text" id="node-config-input-serverName" placeholder="(defaults to mcp-&lt;path&gt;)" style="width:calc(100% - 185px)">
+                <input type="text" id="node-config-input-serverName" placeholder="(defaults to mcp-&lt;path&gt;, or mcp-server)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-row">
                 <label for="node-config-input-instructions" style="vertical-align:top; margin-top:4px; width:150px"><i class="fa fa-comment"></i> Instructions</label>
                 <textarea id="node-config-input-instructions" rows="3" style="width:calc(100% - 185px);" placeholder="Optional instructions for the model about this server."></textarea>
+            </div>
+            <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
+                <small>Sent to the client on connect, ahead of the tool list. Nodes that bring their own tools may add to it &mdash; an <b>MCP Admin</b> node describes how its tools are meant to be used &mdash; so a server holding only those can leave this empty.</small>
             </div>
         </div>
 
@@ -78,11 +84,11 @@
                 <small><i class="fa fa-exclamation-triangle"></i> <b>Bypasses authentication.</b> A request carrying this token skips OAuth entirely on this server's MCP route, wherever that route is reachable from — public included. Despite the name it is not limited to localhost, and it never expires. Meant only for setups where the OAuth flow cannot be set up; clear it when done. A start-up warning names it in the log for as long as it is set.</small>
             </div>
             <div class="form-row">
-                <label for="node-config-input-localDebugGroups" style="width:150px"><i class="fa fa-users"></i> Debug groups</label>
+                <label for="node-config-input-localDebugGroups" style="width:150px"><i class="fa fa-users"></i> Debug claim values</label>
                 <input type="text" id="node-config-input-localDebugGroups" placeholder="(none)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small>Comma-separated <code>groups</code> claim granted to the debug token's user, so the access gates below — including per-tool lists on <code>mcp-in</code> nodes — can be exercised without a real identity provider. Empty grants no groups. A value on the admin-tools list lets the token use <code>deploy_flow</code>.</small>
+                <small>Comma-separated values of the <b>Access claim</b> below, given to the debug token's user so the gates &mdash; including per-tool lists on <b>MCP In</b> nodes &mdash; can be exercised without a real identity provider. With the claim <code>sub</code> the first value is the user's id. Empty grants nothing.</small>
             </div>
             <div class="form-row">
                 <label for="node-config-input-tokenCacheTTL" style="width:150px"><i class="fa fa-clock-o"></i> Token cache TTL</label>
@@ -93,14 +99,14 @@
 
             <div class="form-row">
                 <label for="node-config-input-requiredClaim" style="width:150px"><i class="fa fa-user-secret"></i> Access claim</label>
-                <input type="text" id="node-config-input-requiredClaim" placeholder="groups" style="width:calc(100% - 185px)">
+                <input type="text" id="node-config-input-requiredClaim" placeholder="sub" style="width:calc(100% - 185px)">
             </div>
             <div class="form-row">
                 <label for="node-config-input-requiredValue" style="width:150px"><i class="fa fa-check"></i> Server access</label>
                 <input type="text" id="node-config-input-requiredValue" placeholder="(empty = any authenticated user)" style="width:calc(100% - 185px)">
             </div>
             <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                <small><b>Requires the claim to be in the access token.</b> This server reads the token and nothing else, so a provider that keeps the claim in the ID token or userinfo alone leaves this gate with nothing to match and every tool hidden &mdash; the log says so when it happens. Ask your provider for it in the access token (<a href="https://www.rfc-editor.org/rfc/rfc9068.html" target="_blank">RFC 9068 §2.2.3.1</a>).<br><br>Comma-separated <b>any-of</b> list against the claim above. The claim must contain at least one of them for any tool on this server to be callable; unauthorized callers connect but see no tools. Empty (the default) allows every authenticated user. Tool and admin lists narrow it further, combined with <b>AND</b>.</small>
+                <small><b>Requires the claim to be in the access token.</b> This server reads the token and nothing else, so a provider that keeps the claim in the ID token or userinfo alone leaves this gate with nothing to match and every tool hidden &mdash; the log says so when it happens. Ask your provider for it in the access token (<a href="https://www.rfc-editor.org/rfc/rfc9068.html" target="_blank">RFC 9068 §2.2.3.1</a>).<br><br>Comma-separated <b>any-of</b> list against the claim above. The claim must contain at least one of them for any tool on this server to be callable; unauthorized callers connect but see no tools. Empty (the default) allows every authenticated user. Per-tool lists narrow it further, combined with <b>AND</b>.</small>
             </div>
 
             <div class="form-row">
@@ -111,52 +117,20 @@
                 <small>What the <i>client</i> is authorized to do, checked with <b>AND</b> on top of the claim above &mdash; so a read-only client cannot act for a user who may. Empty means no constraint; a required scope the token lacks is refused.</small>
             </div>
         </div>
-
-        <!-- Admin tab -->
-        <div id="mcpsrv-tab-admin" style="display:none">
-            <div class="form-row">
-                <label style="width:150px"><i class="fa fa-terminal"></i> Admin tools</label>
-                <input type="checkbox" id="node-config-input-adminToolsEnabled" style="width:23px; margin:0">
-                <label for="node-config-input-adminToolsEnabled" style="margin:0; width:auto;"> Enable Node-RED admin tools</label>
-            </div>
-            <div id="mcpsrv-admin-details">
-                <div class="form-row">
-                    <label for="node-config-input-adminToken" style="width:150px"><i class="fa fa-shield"></i> Admin token</label>
-                    <input type="password" id="node-config-input-adminToken" placeholder="NODE_RED_ADMIN_TOKEN" style="width:calc(100% - 185px)" autocomplete="off">
-                </div>
-                <div class="form-row">
-                    <label for="node-config-input-adminPort" style="width:150px"><i class="fa fa-plug"></i> Admin API port</label>
-                    <input type="number" id="node-config-input-adminPort" style="width:80px" min="1" max="65535" value="1880">
-                </div>
-                <div class="form-row">
-                    <label for="node-config-input-adminRequiredValue" style="width:150px"><i class="fa fa-check"></i> Admin access</label>
-                    <input type="text" id="node-config-input-adminRequiredValue" placeholder="admin" style="width:calc(100% - 185px)">
-                </div>
-                <div class="form-tips" style="margin-left:150px; margin-bottom:8px;">
-                    <small>Comma-separated values of the <b>Access claim</b> named on the <b>Auth</b> tab — the caller's claim must contain at least one of them (default <code>admin</code>) for the admin tools to be callable. Applied <b>on top of</b> that tab's <b>Server access</b> list: callers must clear both. Leave empty to add no restriction beyond the server-wide gate.</small>
-                </div>
-                <div class="form-row" style="background:#fff8e1; border:1px solid #ffe082; border-radius:4px; padding:8px 12px; margin-top:4px;">
-                    <i class="fa fa-info-circle" style="color:#f9a825;"></i>
-                    <span style="font-size:12px; margin-left:6px;">
-                        Enabled admin tools: <strong>get_flow</strong>, <strong>deploy_flow</strong>.<br>
-                        These call the Node-RED admin API on localhost:&lt;port&gt;.
-                    </span>
-                </div>
-            </div>
-        </div>
     </div>
 </script>
 
-<script type="text/html" data-help-name="mcp-server">
+<script type="text/html" data-help-name="ftb-mcp-server">
     <p>Config node hosting a standalone Model Context Protocol (MCP) server. Registers a
-    JSON-RPC endpoint at <code>POST /mcp/&lt;path&gt;</code> plus OAuth discovery/dynamic
+    JSON-RPC endpoint at <code>POST /mcp/&lt;path&gt;</code> (<code>POST /mcp</code> with an empty
+    path) plus OAuth discovery/dynamic
     client registration routes, so MCP clients (e.g. Claude) can authenticate and call the
     tools defined by any <code>mcp-in</code>/<code>mcp-out</code> pair wired to this node.</p>
     <p>Multiple <code>mcp-server</code> nodes can coexist — each gets its own path and its
     own independent auth configuration, so different integrations can be isolated from each
     other.</p>
-    <p>Enable <b>Admin tools</b> to additionally expose <code>get_flow</code>/<code>deploy_flow</code>,
-    which let an authorized caller read and deploy Node-RED flow tabs via the Admin HTTP API.</p>
+    <p>To administer Node-RED itself over MCP, give an <b>MCP Admin</b> node a server of its own:
+    its tools register here like any <code>mcp-in</code>, behind the same gates.</p>
     <h3>MCP authentication</h3>
     <p>The issuer is always verified against the discovered identity provider, and the audience
     against the <b>Token audience</b> field (defaulting to the MCP endpoint URL). The provider is
@@ -189,9 +163,8 @@
     for a user who may write — delegation, not impersonation.</p>
 
     <p><b>Access claim</b> names one claim that every list on this server matches against, with a
-    comma-separated any-of list of its values per gate: <b>Server access</b> (Auth tab),
-    <b>Tool access</b> on each <code>mcp-in</code> node, and <b>Admin access</b> (Admin tab). Those
-    are combined with AND too, so a tool is reachable only by a caller who clears both the server's
+    comma-separated any-of list of its values per gate: <b>Server access</b> (Auth tab) and
+    <b>Tool access</b> on each <code>mcp-in</code> node. Those are combined with AND too, so a tool is reachable only by a caller who clears both the server's
     list and the tool's own. An empty list imposes no restriction. Tools a caller cannot reach are
     hidden from <code>tools/list</code>. If the identity provider nests its roles, address them with
     a dotted claim path such as <code>realm_access.roles</code>.</p>
@@ -205,11 +178,14 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('mcp-server', {
+    RED.nodes.registerType('ftb-mcp-server', {
         category: 'config',
+        // Config nodes are listed by type name unless they carry a palette label, and the type
+        // name is prefixed only to stay unique in the flow library.
+        paletteLabel: 'MCP Server',
         defaults: {
             name              : { value: '' },
-            path              : { value: '', required: true },
+            path              : { value: '' },
             serverUrl         : { value: '', required: true },
             filterHost        : { value: false },
             serverName        : { value: '' },
@@ -219,15 +195,11 @@
             audience          : { value: '' },
             tokenCacheTTL     : { value: 300 },
             localDebugGroups  : { value: '' },
-            requiredClaim     : { value: 'groups' },
+            requiredClaim     : { value: 'sub' },
             requiredValue     : { value: '' },
-        requiredScope     : { value: '' },
-            adminToolsEnabled : { value: false },
-            adminPort         : { value: 1880 },
-            adminRequiredValue: { value: 'admin' }
+            requiredScope     : { value: '' }
         },
         credentials: {
-            adminToken     : { type: 'password' },
             localDebugToken: { type: 'password' }
         },
         label: function () {
@@ -243,20 +215,14 @@
             });
             tabs.addTab({ id: 'mcpsrv-tab-general', label: 'General' });
             tabs.addTab({ id: 'mcpsrv-tab-auth',    label: 'Auth' });
-            tabs.addTab({ id: 'mcpsrv-tab-admin',   label: 'Admin' });
 
             function updatePathHint() {
-                var path = $('#node-config-input-path').val() || '<path>';
-                $('#mcpsrv-path-hint small').text('Registers endpoint: POST /mcp/' + path);
+                var path = ($('#node-config-input-path').val() || '').replace(/^\/+/, '');
+                $('#mcpsrv-path-hint small').text('Registers endpoint: POST /mcp' + (path ? '/' + path : ''));
             }
             $('#node-config-input-path').on('input', updatePathHint);
             updatePathHint();
 
-            function toggleAdmin() {
-                $('#mcpsrv-admin-details').toggle($('#node-config-input-adminToolsEnabled').is(':checked'));
-            }
-            $('#node-config-input-adminToolsEnabled').on('change', toggleAdmin);
-            toggleAdmin();
         }
     });
 </script>

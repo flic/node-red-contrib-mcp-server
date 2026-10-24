@@ -8,7 +8,7 @@
   },
   {
     "id": "ma-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Music Assistant",
     "path": "music",
     "serverUrl": "",
@@ -38,7 +38,7 @@
   },
   {
     "id": "ma-in-get-outputs",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Get outputs",
     "mcpServer": "ma-server",
@@ -81,7 +81,7 @@
   },
   {
     "id": "ma-out-get-outputs",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -101,7 +101,7 @@
   },
   {
     "id": "ma-in-set-outputs",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Set outputs",
     "mcpServer": "ma-server",
@@ -144,7 +144,7 @@
   },
   {
     "id": "ma-out-set-outputs",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -164,7 +164,7 @@
   },
   {
     "id": "ma-in-play",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Play media",
     "mcpServer": "ma-server",
@@ -207,7 +207,7 @@
   },
   {
     "id": "ma-out-play",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -227,7 +227,7 @@
   },
   {
     "id": "ma-in-player",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Player control",
     "mcpServer": "ma-server",
@@ -270,7 +270,7 @@
   },
   {
     "id": "ma-out-player",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -290,7 +290,7 @@
   },
   {
     "id": "ma-in-set-vol",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Set volume per speaker",
     "mcpServer": "ma-server",
@@ -333,7 +333,7 @@
   },
   {
     "id": "ma-out-set-vol",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -353,7 +353,7 @@
   },
   {
     "id": "ma-in-search",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Search library",
     "mcpServer": "ma-server",
@@ -396,7 +396,7 @@
   },
   {
     "id": "ma-out-search",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -416,7 +416,7 @@
   },
   {
     "id": "ma-in-dstm",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Don't Stop The Music",
     "mcpServer": "ma-server",
@@ -459,7 +459,7 @@
   },
   {
     "id": "ma-out-dstm",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -479,7 +479,7 @@
   },
   {
     "id": "ma-in-repeat",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Repeat mode",
     "mcpServer": "ma-server",
@@ -522,7 +522,7 @@
   },
   {
     "id": "ma-out-repeat",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",
@@ -542,7 +542,7 @@
   },
   {
     "id": "ma-in-fav",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-music-mcp",
     "name": "Favorite track",
     "mcpServer": "ma-server",
@@ -585,7 +585,7 @@
   },
   {
     "id": "ma-out-fav",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-music-mcp",
     "name": "",
     "mcpServer": "ma-server",

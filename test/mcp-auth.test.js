@@ -400,9 +400,9 @@ describe('lib/mcp-auth missing access claim', function () {
     });
 
     it('asks a function per token, so gates registered after start count', async function () {
-        // mcp-in nodes register their tools after the server node has built its auth, and the
-        // admin list reads the same claim as the server list. A flag fixed at construction
-        // missed both.
+        // mcp-in nodes register their tools after the server node has built its auth, and each
+        // tool's own list reads the same claim as the server list. A flag fixed at construction
+        // missed them.
         let gated = false;
         const { auth, state } = build({ gateClaim: 'groups', gateClaimRequired: () => gated }, {});
         await auth.validateToken('a1');

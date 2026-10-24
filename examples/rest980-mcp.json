@@ -9,7 +9,7 @@
 
   {
     "id": "rb-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "iRobot (rest980)",
     "path": "roomba",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "rb-in-status",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-rest980-mcp",
     "name": "iRobot status",
     "mcpServer": "rb-server",
@@ -91,7 +91,7 @@
   },
   {
     "id": "rb-out-status",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-rest980-mcp",
     "name": "",
     "mcpServer": "rb-server",
@@ -102,7 +102,7 @@
 
   {
     "id": "rb-in-action",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-rest980-mcp",
     "name": "iRobot action",
     "mcpServer": "rb-server",
@@ -164,7 +164,7 @@
   },
   {
     "id": "rb-out-action",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-rest980-mcp",
     "name": "",
     "mcpServer": "rb-server",
@@ -175,7 +175,7 @@
 
   {
     "id": "rb-in-cleanroom",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-rest980-mcp",
     "name": "iRobot clean room",
     "mcpServer": "rb-server",
@@ -237,7 +237,7 @@
   },
   {
     "id": "rb-out-cleanroom",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-rest980-mcp",
     "name": "",
     "mcpServer": "rb-server",

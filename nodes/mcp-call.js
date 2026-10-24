@@ -2,7 +2,7 @@
 // no protocol, no connection, no reaching a server elsewhere. It calls the mcp-in nodes deployed
 // in this process directly, through the mcp-server config node's flow-side surface, starting
 // where the HTTP route's auth has already run — which is to say, past it. See the node's help
-// text for why that is deliberate and where it stops (admin tools keep the route's rule).
+// text for why that is deliberate.
 
 module.exports = function(RED) {
     function mcpCall(config) {
@@ -10,7 +10,6 @@ module.exports = function(RED) {
         // The server whose tools this node calls. Required: unlike hal2, this package has no
         // implicit endpoint to fall back on — every tool belongs to one mcp-server node.
         this.mcpServer       = RED.nodes.getNode(config.mcpServer);
-        this.allowAdminTools = config.allowAdminTools === true;
         this.field           = config.field || "payload";
         this.fieldType       = config.fieldType || "msg";
         var node = this;
@@ -84,9 +83,7 @@ module.exports = function(RED) {
             node.status({ fill: 'blue', shape: 'dot', text: tool });
 
             try {
-                const out = await target.callTool(
-                    tool, args, msg.claims || null, { adminEnabled: node.allowAdminTools }
-                );
+                const out = await target.callTool(tool, args, msg.claims || null);
 
                 if (!out || out.ok !== true) {
                     return fail((out && out.message) || 'Tool call failed', out && out.code);
@@ -110,5 +107,5 @@ module.exports = function(RED) {
             }
         });
     }
-    RED.nodes.registerType('mcp-call', mcpCall);
+    RED.nodes.registerType('ftb-mcp-call', mcpCall);
 };

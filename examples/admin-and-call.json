@@ -1,0 +1,139 @@
+[
+    {
+        "id": "ex-admin-tab",
+        "type": "tab",
+        "label": "MCP Admin and MCP Call",
+        "disabled": false,
+        "info": "Two things this package does besides serving your own tools.\n\n**MCP Admin** administers this Node-RED over MCP. It has a server of its own (path `nodered`), so which clients may administer Node-RED is one resource at your identity provider. Its output carries one message per change; here it goes to a debug node, in practice to a notification or a log. Give it an admin token (see its help for the settings.js entry) before deploying.\n\n**MCP Call** reaches tools on a server from a flow, without MCP or a token. Press the inject to list what the admin server offers."
+    },
+    {
+        "id": "ex-admin-server",
+        "type": "ftb-mcp-server",
+        "name": "Node-RED admin",
+        "path": "nodered",
+        "serverUrl": "",
+        "filterHost": false,
+        "serverName": "",
+        "instructions": "Administers this Node-RED: read and search flows, change them node by node, test them with inject and the debug sidebar, and roll back.",
+        "issuerUrl": "",
+        "extraScopes": "",
+        "audience": "",
+        "tokenCacheTTL": 300,
+        "localDebugGroups": "",
+        "requiredClaim": "groups",
+        "requiredValue": "",
+        "requiredScope": ""
+    },
+    {
+        "id": "ex-admin",
+        "type": "ftb-mcp-admin",
+        "z": "ex-admin-tab",
+        "name": "",
+        "mcpServer": "ex-admin-server",
+        "instanceName": "",
+        "instanceDescription": "",
+        "groupRead": true,
+        "groupFlows": true,
+        "groupTest": true,
+        "groupContext": false,
+        "writeRequiredValue": "",
+        "snapshots": 50,
+        "adminPort": "",
+        "x": 140,
+        "y": 80,
+        "wires": [
+            [
+                "ex-admin-audit"
+            ],
+            [
+                "ex-admin-calls"
+            ]
+        ]
+    },
+    {
+        "id": "ex-admin-audit",
+        "type": "debug",
+        "z": "ex-admin-tab",
+        "name": "Changes made over MCP",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 380,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "ex-admin-calls",
+        "type": "debug",
+        "z": "ex-admin-tab",
+        "name": "Every call",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 380,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "ex-call-inject",
+        "type": "inject",
+        "z": "ex-admin-tab",
+        "name": "List the admin tools",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"list\":true}",
+        "payloadType": "json",
+        "x": 150,
+        "y": 160,
+        "wires": [
+            [
+                "ex-call"
+            ]
+        ]
+    },
+    {
+        "id": "ex-call",
+        "type": "ftb-mcp-call",
+        "z": "ex-admin-tab",
+        "mcpServer": "ex-admin-server",
+        "name": "",
+        "field": "payload",
+        "fieldType": "msg",
+        "x": 370,
+        "y": 160,
+        "wires": [
+            [
+                "ex-call-out"
+            ]
+        ]
+    },
+    {
+        "id": "ex-call-out",
+        "type": "debug",
+        "z": "ex-admin-tab",
+        "name": "Tool catalogue",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "x": 560,
+        "y": 160,
+        "wires": []
+    }
+]

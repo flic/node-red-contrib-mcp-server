@@ -2,7 +2,6 @@
 
 const assert = require('node:assert');
 const { handleRpc } = require('../lib/mcp-rpc');
-const { TOOLS, TOOL_NAMES } = require('../lib/admin-tools');
 
 // Deliberately a plain object (not null-prototype): handleRpc must not resolve
 // caller-supplied names through the prototype chain regardless of registry flavour.
@@ -20,9 +19,6 @@ function deps(overrides = {}) {
         instructions      : '',
         requiredClaim     : 'groups',
         requiredValue     : '',
-        adminToolsEnabled : false,
-        adminRequiredValue: 'admin',
-        adminTools        : { TOOLS, TOOL_NAMES, callTool: async () => 'admin ok' },
         tools             : registry(),
         callTool          : async () => 'tool ok'
     }, overrides);
@@ -51,15 +47,6 @@ describe('lib/mcp-rpc initialize', function () {
         const out = await handleRpc({ id: 1, method: 'initialize' }, claims(['guest']),
             deps({ requiredValue: 'staff' }));
         assert.strictEqual(out.body.result.instructions, '');
-    });
-
-    it('includes admin tool names only for admin-gated callers', async function () {
-        const on  = await handleRpc({ id: 1, method: 'initialize' }, claims(['admin']),
-            deps({ adminToolsEnabled: true }));
-        assert.ok(on.body.result.instructions.includes('get_flow'));
-        const off = await handleRpc({ id: 1, method: 'initialize' }, claims(['media']),
-            deps({ adminToolsEnabled: true }));
-        assert.ok(!off.body.result.instructions.includes('get_flow'));
     });
 });
 
@@ -97,15 +84,6 @@ describe('lib/mcp-rpc tools/list', function () {
         const out = await handleRpc({ id: 1, method: 'tools/list' }, claims(['media']),
             deps({ requiredValue: 'staff' }));
         assert.deepStrictEqual(out.body.result.tools, []);
-    });
-
-    it('appends admin tools only when enabled and admin-gated', async function () {
-        const d = deps({ adminToolsEnabled: true });
-        const admin = await handleRpc({ id: 1, method: 'tools/list' }, claims(['admin']), d);
-        assert.deepStrictEqual(admin.body.result.tools.map(t => t.name),
-            ['open', 'get_flow', 'deploy_flow']);
-        const plain = await handleRpc({ id: 1, method: 'tools/list' }, claims(['media']), d);
-        assert.deepStrictEqual(plain.body.result.tools.map(t => t.name), ['open', 'gated']);
     });
 });
 
@@ -174,29 +152,5 @@ describe('lib/mcp-rpc tools/call', function () {
             const out = await call(name, { claims: claims([]), deps: deps() });
             assert.strictEqual(out.body.error && out.body.error.code, -32601, name);
         }
-    });
-
-    it('hides admin tools entirely when disabled', async function () {
-        const out = await call('get_flow', { claims: claims(['admin']), deps: deps() });
-        assert.strictEqual(out.body.error.code, -32601);
-    });
-
-    it('re-checks the admin gate on every call', async function () {
-        const out = await call('get_flow', { claims: claims(['media']), deps: deps({ adminToolsEnabled: true }) });
-        assert.strictEqual(out.body.result.isError, true);
-        assert.ok(out.body.result.content[0].text.includes('admin privileges'));
-    });
-
-    it('runs an admin tool for a qualified caller', async function () {
-        const out = await call('get_flow', { claims: claims(['admin']), deps: deps({ adminToolsEnabled: true }) });
-        assert.deepStrictEqual(out.body.result.content, [{ type: 'text', text: 'admin ok' }]);
-    });
-
-    it('maps an admin rpcCode error to a JSON-RPC error', async function () {
-        const boom = Object.assign(new Error('Invalid flow id'), { rpcCode: -32602 });
-        const d = deps({ adminToolsEnabled: true,
-            adminTools: { TOOLS, TOOL_NAMES, callTool: async () => { throw boom; } } });
-        const out = await call('deploy_flow', { claims: claims(['admin']), deps: d });
-        assert.deepStrictEqual(out.body.error, { code: -32602, message: 'Invalid flow id' });
     });
 });

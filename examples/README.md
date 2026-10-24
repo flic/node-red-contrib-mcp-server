@@ -1,7 +1,7 @@
 # Examples
 
-Each file is a Node-RED flow export built from `mcp-in`/`mcp-out` nodes, its own dedicated
-`mcp-server` config node, plus plain `function`/`http request` nodes — no dependency on any
+Each file is a Node-RED flow export built from `MCP In`/`MCP Out` nodes (types `ftb-mcp-in`/`ftb-mcp-out`), its own dedicated
+`MCP Server` config node, plus plain `function`/`http request` nodes — no dependency on any
 other custom module.
 
 | File | Integration | Default path |
@@ -16,6 +16,7 @@ other custom module.
 | `sonarr-mcp.json` | Sonarr TV series/episodes | `/mcp/sonarr` |
 | `sl-mcp.json` | Stockholm public transport (SL): departures, disruptions, journey planning — generated from `examples-src/sl/` in the GitHub repo (not part of the npm package), needs Node-RED ≥ 5.0 | `/mcp/sl` |
 | `spotify-mcp.json` | Spotify playback + search (includes an OAuth callback flow) | `/mcp/spotify` |
+| `admin-and-call.json` | Node-RED administration over MCP (`MCP Admin`, output to a debug node), and `MCP Call` listing that server's tools from a flow | `/mcp/nodered` |
 
 Each `mcp-server` node already carries a server-level **Instructions** description of what
 that integration does — it's what an MCP client sees before it even lists tools, distinct

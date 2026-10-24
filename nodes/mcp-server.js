@@ -6,11 +6,10 @@ const pkgVersion = require('../package.json').version;
 
 const { createMcpAuth }              = require('../lib/mcp-auth');
 const { createHttpGuards, hostFilter } = require('../lib/http-guards');
-const { createAdminTools }           = require('../lib/admin-tools');
-const { toolOk, respond, rpcErr, unknownTool } = require('../lib/tool-result');
+const { toolOk, respond, unknownTool } = require('../lib/tool-result');
 const { handleRpc }                  = require('../lib/mcp-rpc');
 const { requiredScopeChallenge, advertisedScopes,
-        visibleTools, claimAllows,
+        visibleTools,
         gateReadsClaim }             = require('../lib/claim-gate');
 const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
 
@@ -60,12 +59,24 @@ module.exports = function (RED) {
 
         // ── Routes ───────────────────────────────────────────────────────────────
         // Every mcp-server instance owns its own routes, scoped under /mcp/<path> —
-        // multiple independent MCP servers (one per integration) can coexist.
-        const mcpRoutePath = '/mcp/' + (config.path || 'server').replace(/^\/+/, '');
+        // multiple independent MCP servers (one per integration) can coexist. An empty path is
+        // /mcp itself, for a server with a hostname of its own.
+        const routePath    = (config.path || '').trim().replace(/^\/+|\/+$/g, '');
+        const mcpRoutePath = '/mcp' + (routePath ? '/' + routePath : '');
         const publicBase   = (config.serverUrl || '').replace(/\/$/, '');
         const resourceUrl  = publicBase + mcpRoutePath;
-        const serverName   = config.serverName || ('mcp-' + (config.path || 'server'));
-        const instructions = config.instructions || '';
+        // Read by nodes registering tools here that need to name the server, as MCP Admin does.
+        node.resourceUrl   = resourceUrl;
+        const serverName   = config.serverName || ('mcp-' + (routePath || 'server'));
+        // The configured text, then whatever nodes registering tools here add about them — keyed
+        // by owner so each one replaces or withdraws only its own.
+        const contributedInstructions = new Map();
+        const instructions = () => [config.instructions || '', ...contributedInstructions.values()]
+            .filter(Boolean).join('\n\n');
+        node.setInstructions = (ownerId, text) => {
+            if (text) contributedInstructions.set(ownerId, String(text));
+            else contributedInstructions.delete(ownerId);
+        };
 
         const wellKnownPaths = name => [
             mcpRoutePath + '/.well-known/' + name,
@@ -87,14 +98,25 @@ module.exports = function (RED) {
                           '" is not a valid URL — filtering disabled, matching on path only');
             }
         }
+        // A bare /mcp answers for every hostname this Node-RED serves, and is the path other
+        // packages' single-endpoint servers use too (hal2's event handler, for one). Allowed, but
+        // said, since the first deploy that collides would otherwise answer with someone else's.
+        if (!routePath && !expectedHost) {
+            node.warn('Serving /mcp without hostname filtering: this server answers /mcp for every hostname '
+                + 'this Node-RED serves. Turn on "Only serve requests for this hostname" if another '
+                + 'MCP endpoint lives at /mcp here.');
+        }
+
         // One shared hostFilter instance, tagged with this node's id so removeRoute (above)
         // can tell this node's routes apart from a sibling's on the same path.
         const ownedHostFilter = hostFilter(expectedHost);
         ownedHostFilter._mcpOwner = node.id;
 
         // The one claim name every gate on this server matches against — the server-wide list
-        // below, each mcp-in node's own list, and the admin-tools list. Everything else is values.
-        const requiredClaim = (config.requiredClaim || 'groups').trim();
+        // below and each registered tool's own list. Everything else is values.
+        // `sub` by default: the one claim every JWT access token carries (RFC 9068 §2.2), where
+        // `groups` and its kind exist only if the provider puts them there — and some cannot.
+        const requiredClaim = (config.requiredClaim || 'sub').trim();
         // Whole-server gate: a comma-separated any-of list that applies to every tool here.
         // Default '' (allow all) only when never set. Empty string stays "any authenticated user";
         // set a list and others still connect, but see no tools and cannot call any.
@@ -127,8 +149,7 @@ module.exports = function (RED) {
 
         // Groups granted to the local debug token (comma-separated), so gates with other values
         // can be tested without an identity provider. None unless written in: the token replaces
-        // OAuth on this server's route, public or not, and admin is not something it should
-        // carry by default.
+        // OAuth on this server's route, public or not, so it carries nothing it was not given.
         const localDebugToken  = (node.credentials && node.credentials.localDebugToken) || '';
         const localDebugGroups = (config.localDebugGroups || '')
             .split(',').map(s => s.trim()).filter(Boolean);
@@ -140,12 +161,11 @@ module.exports = function (RED) {
             mcpServerUrl    : resourceUrl,
             resourceUrl,
             gateClaim: requiredClaim,
-            // Asked per token, not fixed here: the admin list and each mcp-in node's own list
-            // read the same claim, and mcp-in nodes register after this runs. Checking only the
-            // server list let a token without the claim hide the admin tools without a word.
+            // Asked per token, not fixed here: each registered tool's own list reads the same
+            // claim, and tools register after this runs. Checking only the server list let a
+            // token without the claim hide those tools without a word.
             gateClaimRequired: () => gateReadsClaim({
-                serverValue: requiredValue, adminToolsEnabled, adminValue: adminRequiredValue,
-                tools: node.mcpRegisteredTools
+                serverValue: requiredValue, tools: node.mcpRegisteredTools
             }),
             advertisedScopes: advertisedArr.join(' '),
             localDebugToken,
@@ -157,30 +177,19 @@ module.exports = function (RED) {
         const { requireBearer, getOidcConfig } = auth;
         if (issuerUrl) { getOidcConfig().catch(() => {}); }   // warm the cache (non-blocking)
 
-        // ── Admin tools (get_flow / deploy_flow via the Node-RED Admin API) ────────
-        const adminToolsEnabled  = config.adminToolsEnabled === true;
-        // Matched against requiredClaim above, and applied on top of the whole-server list —
-        // admin tools are gated exactly like any other tool, just with their own value list.
-        // Default 'admin' only when never set (undefined). Empty string is respected
-        // as "no restriction beyond the whole-server gate".
-        const adminRequiredValue = (config.adminRequiredValue === undefined ? 'admin' : config.adminRequiredValue).trim();
-        const adminTools = createAdminTools({
-            adminPort     : Number(config.adminPort || 1880),
-            adminRoot     : RED.settings.httpAdminRoot,
-            getAdminToken : () => (node.credentials && node.credentials.adminToken) || ''
-        });
+        // 2.x served get_flow/deploy_flow from a checkbox here. 3.0.0 moved Node-RED
+        // administration to its own node (ftb-mcp-admin), so a converted 2.x server that had them
+        // on now simply lacks them — said once, rather than left for the caller to discover.
+        if (config.adminToolsEnabled === true) {
+            node.warn('Admin tools are no longer part of the MCP server node. Add an "MCP Admin" '
+                + '(ftb-mcp-admin) node pointing at a server of its own to administer Node-RED over MCP.');
+        }
 
         // Named at every start, so a token left behind after debugging is visible in the log
-        // rather than only in a password field nobody opens. Admin tools sit behind the server
-        // list as well as their own, so both are asked.
+        // rather than only in a password field nobody opens.
         if (localDebugToken) {
-            const debugClaims = { groups: localDebugGroups };   // the claims validateToken hands out
-            const canDeploy = adminToolsEnabled
-                && claimAllows(debugClaims, requiredClaim, requiredValue)
-                && claimAllows(debugClaims, requiredClaim, adminRequiredValue);
             node.warn('Local debug token is set — OAuth is bypassed on this MCP server\'s route, '
-                + 'public or not, for groups=' + JSON.stringify(localDebugGroups)
-                + (canDeploy ? ' — this token can deploy flows' : '')
+                + 'public or not, with ' + requiredClaim + '=' + JSON.stringify(localDebugGroups)
                 + '. Clear the field when OAuth is available.');
         }
 
@@ -192,18 +201,6 @@ module.exports = function (RED) {
         node.mcpPendingCalls    = Object.create(null);
 
         node.registerMCPTool = function (name, description, schema, timeoutSec, requiredValue, ownerId) {
-            // A dynamic tool with an admin tool's name shadows it — tools/call resolves the
-            // dynamic registry first — and tools/list carries the name twice. The flow does
-            // run, so this is a warning rather than a refusal: renaming is the fix, but an
-            // existing flow that (knowingly or not) shadows must not break on upgrade.
-            if (adminTools.TOOL_NAMES.has(name)) {
-                node.warn('MCP tool "' + name + '" has the same name as a built-in admin tool'
-                    + (adminToolsEnabled
-                        ? ' — this flow shadows it, the admin tool becomes unreachable, and the name '
-                          + 'appears twice in tools/list for admin callers. Rename the tool.'
-                        : '. It works while admin tools are disabled, but will shadow the admin tool '
-                          + 'the day they are enabled. Rename the tool.'));
-            }
             // Duplicate tool names are a silent conflict: the registry entry is overwritten but
             // BOTH mcp-in listeners keep firing, so a single call runs two flows and the first
             // mcp-out to answer wins. Surface it loudly instead of debugging it in production.
@@ -246,23 +243,10 @@ module.exports = function (RED) {
             });
         };
 
-        // The flow-side surface mcp-call uses. No gate is consulted for dynamic tools: the claim
-        // and scope gates run on the HTTP route, where the token behind them was verified, and a
-        // flow node is already inside the trust boundary since editing flows is full control.
-        // Admin tools are the exception and keep the route's rule — the caller's own opt-in AND a
-        // verified admin claim, because the flag alone must never be sufficient.
-        node.callTool = async function (toolName, args, claims, opts) {
-            opts = opts || {};
-            if (adminTools.TOOL_NAMES.has(toolName)) {
-                if (!adminToolsEnabled || !opts.adminEnabled) { return unknownTool(toolName); }
-                if (!claimAllows(claims, requiredClaim, adminRequiredValue)) {
-                    node.status({ fill: 'red', shape: 'ring', text: 'forbidden' });
-                    return rpcErr(-32000, 'Access denied: the "' + toolName + '" tool requires admin '
-                        + 'privileges. Set msg.claims to a value carrying them.');
-                }
-                return toolOk(await adminTools.callTool(toolName, args || {}));
-            }
-
+        // The flow-side surface mcp-call uses. No gate is consulted: the claim and scope gates run
+        // on the HTTP route, where the token behind them was verified, and a flow node is already
+        // inside the trust boundary since editing flows is full control.
+        node.callTool = async function (toolName, args, claims) {
             const entry = node.mcpRegisteredTools[toolName];
             if (!entry) { return unknownTool(toolName); }
             try {
@@ -278,9 +262,7 @@ module.exports = function (RED) {
         };
 
         // What this server offers, in the shape tools/list uses. The gate allows everything
-        // because the flow path does — listing less than mcp-call can call would be a lie. Admin
-        // tools stay out: reaching them needs the calling node's own opt-in and a claim, so
-        // advertising them here would name a door most callers cannot open.
+        // because the flow path does — listing less than mcp-call can call would be a lie.
         node.listTools = () => visibleTools(node.mcpRegisteredTools, { allows: () => true });
 
         node.resolveMCPCall = function (callId, content) {
@@ -316,9 +298,6 @@ module.exports = function (RED) {
             requiredClaim,
             requiredValue,
             requiredScope,
-            adminToolsEnabled,
-            adminRequiredValue,
-            adminTools,
             tools  : node.mcpRegisteredTools,
             status : s => node.status(s),
             callTool: (toolName, timeoutMs, args, claims) =>
@@ -350,9 +329,8 @@ module.exports = function (RED) {
         });
     }
 
-    RED.nodes.registerType('mcp-server', McpServer, {
+    RED.nodes.registerType('ftb-mcp-server', McpServer, {
         credentials: {
-            adminToken      : { type: 'password' },
             localDebugToken : { type: 'password' }
         }
     });

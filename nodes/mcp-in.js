@@ -52,5 +52,5 @@ module.exports = function (RED) {
         });
     }
 
-    RED.nodes.registerType('mcp-in', McpIn);
+    RED.nodes.registerType('ftb-mcp-in', McpIn);
 };

@@ -95,7 +95,7 @@
 
   {
     "id": "sp-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Spotify",
     "path": "spotify",
     "serverUrl": "",
@@ -115,7 +115,7 @@
   },
   {
     "id": "sp-in-now",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Now playing",
     "mcpServer": "sp-server",
@@ -145,7 +145,7 @@
   },
   {
     "id": "sp-out-now",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -156,7 +156,7 @@
 
   {
     "id": "sp-in-play",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Play",
     "mcpServer": "sp-server",
@@ -186,7 +186,7 @@
   },
   {
     "id": "sp-out-play",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -197,7 +197,7 @@
 
   {
     "id": "sp-in-pause",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Pause",
     "mcpServer": "sp-server",
@@ -227,7 +227,7 @@
   },
   {
     "id": "sp-out-pause",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -238,7 +238,7 @@
 
   {
     "id": "sp-in-resume",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Resume",
     "mcpServer": "sp-server",
@@ -268,7 +268,7 @@
   },
   {
     "id": "sp-out-resume",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -279,7 +279,7 @@
 
   {
     "id": "sp-in-next",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Next track",
     "mcpServer": "sp-server",
@@ -309,7 +309,7 @@
   },
   {
     "id": "sp-out-next",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -320,7 +320,7 @@
 
   {
     "id": "sp-in-prev",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Previous track",
     "mcpServer": "sp-server",
@@ -350,7 +350,7 @@
   },
   {
     "id": "sp-out-prev",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -361,7 +361,7 @@
 
   {
     "id": "sp-in-devices",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Get devices",
     "mcpServer": "sp-server",
@@ -391,7 +391,7 @@
   },
   {
     "id": "sp-out-devices",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -402,7 +402,7 @@
 
   {
     "id": "sp-in-transfer",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Transfer playback",
     "mcpServer": "sp-server",
@@ -432,7 +432,7 @@
   },
   {
     "id": "sp-out-transfer",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",
@@ -443,7 +443,7 @@
 
   {
     "id": "sp-in-volume",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-spotify-mcp",
     "name": "Set volume",
     "mcpServer": "sp-server",
@@ -473,7 +473,7 @@
   },
   {
     "id": "sp-out-volume",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-spotify-mcp",
     "name": "",
     "mcpServer": "sp-server",

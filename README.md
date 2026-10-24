@@ -1,10 +1,35 @@
 # @frtnbach/node-red-contrib-mcp-server
 
 Generic [Model Context Protocol](https://modelcontextprotocol.io) (MCP) server nodes for
-Node-RED: expose any flow as an MCP tool behind an OAuth-protected endpoint, with optional
-Node-RED admin (flow read/deploy) tools. No home-automation or other domain coupling — this
-is a bare building block for turning Node-RED flows into MCP tools that AI assistants
-(Claude, etc.) can call.
+Node-RED: expose any flow as an MCP tool behind an OAuth-protected endpoint, and administer
+Node-RED itself over MCP with a dedicated admin node. No home-automation or other domain
+coupling — this is a bare building block for turning Node-RED flows into MCP tools that AI
+assistants (Claude, etc.) can call.
+
+Requires Node-RED 4.0 or later on Node.js 22 or later.
+
+> **Breaking changes in 3.0.0.**
+>
+> **New type names.** Every node type now carries an `ftb-` prefix (`ftb-mcp-server`,
+> `ftb-mcp-in`, `ftb-mcp-out`, `ftb-mcp-call`): the bare `mcp-*` names collide with other
+> packages in the flow library, and two packages registering one type cannot be installed side
+> by side. The palette labels are unchanged. Flows written for 2.x keep running — the old names
+> are still registered, without an editor definition, so the editor shows those nodes as
+> unknown and cannot edit them — and the editor offers to **convert** them in one click when it
+> finds any. The conversion changes only the type; ids, wires, settings and stored credentials
+> carry over. **4.0.0 removes the old names**, so convert before then.
+>
+> **Admin tools moved.** `get_flow`/`deploy_flow` and the server node's Admin tab are gone, as
+> is `Allow admin tools` on `mcp-call`. Node-RED administration is now the
+> [**MCP Admin**](#administering-node-red-mcp-admin) node: placed in a flow, with a server of
+> its own, and with tools that change flows node by node instead of replacing whole tabs. A
+> converted 2.x server that had admin tools enabled logs that they moved.
+>
+> **Minimum versions.** Node-RED 4.0 and Node.js 22 (it was Node-RED 2.2 and Node.js 20.19).
+>
+> **Smaller changes.** `Access claim` defaults to `sub` on new MCP Server nodes (existing nodes keep
+> their value), and `Debug groups` became `Debug claim values`, given to whichever claim that is.
+> `Path` may be left empty to serve `/mcp` itself.
 
 > **Breaking change in 2.0.0 — a resource server and nothing else.** This node no longer
 > takes part in OAuth. It is not an OIDC client, registers nothing, and holds no
@@ -29,65 +54,158 @@ is a bare building block for turning Node-RED flows into MCP tools that AI assis
 
 ## Nodes
 
-- **`mcp-server`** (config node) — hosts a standalone MCP JSON-RPC endpoint at
+Palette names first, with the node type (what flow JSON says) in brackets.
+
+- **MCP Server** (`ftb-mcp-server`, config node) — hosts a standalone MCP JSON-RPC endpoint at
   `POST /mcp/<path>`, protected by a bearer token it verifies itself, and publishes OAuth 2.0
   protected-resource metadata (RFC 9728) pointing OAuth-aware MCP clients (e.g. Claude.ai) at
   the identity provider that issues those tokens. It runs no login and performs no OAuth flow
-  of its own. Multiple `mcp-server` nodes can coexist, each with its own path and its own
+  of its own. Multiple MCP Server nodes can coexist, each with its own path and its own
   independent auth configuration.
-- **`mcp-in`** — defines one MCP tool (name, description, JSON-Schema parameters, and an
+- **MCP In** (`ftb-mcp-in`) — defines one MCP tool (name, description, JSON-Schema parameters, and an
   optional per-tool access gate). When an MCP client calls the tool, the node emits a message
   carrying the call arguments; wire the rest of the flow to do the actual work. The arguments
   in `msg.payload` are **untrusted caller input** — the JSON schema is documentation for the
   model, not validation — so the flow must validate and escape them before use in shell
   commands, file paths, URLs or queries.
-- **`mcp-out`** — resolves a pending tool call. Wire the end of your flow here with
-  `msg._mcpCallId` intact (from the originating `mcp-in` message) and `msg.payload` set to
+- **MCP Out** (`ftb-mcp-out`) — resolves a pending tool call. Wire the end of your flow here with
+  `msg._mcpCallId` intact (from the originating MCP In message) and `msg.payload` set to
   the result.
-
-- **`mcp-call`** — the back door into your own tools: calls the `mcp-in` nodes deployed in
+- **MCP Call** (`ftb-mcp-call`) — the back door into your own tools: calls the MCP In nodes deployed in
   *this* Node-RED directly, from a flow. It is not an MCP client and reaches no server
   elsewhere. Send `{ "tool": "<name>", "args": { ... } }`, or `{ "list": true }` to get the
   configured server's catalogue in the shape `tools/list` returns.
+- **MCP Admin** (`ftb-mcp-admin`) — administers this Node-RED over MCP: reads, searches,
+  changes and tests flows, and undoes changes. See
+  [Administering Node-RED](#administering-node-red-mcp-admin).
 
-A single `mcp-in` → ... → `mcp-out` chain is one MCP tool. Build as many chains as you want
-against the same `mcp-server` node to expose a whole toolset.
+A single MCP In → ... → MCP Out chain is one MCP tool. Build as many chains as you want
+against the same MCP Server node to expose a whole toolset.
 
 ### Calling your own tools from a flow
 
-The name misleads if you read it as a client. `mcp-call` speaks no protocol and opens no
-connection; it reaches into the `mcp-server` config node you point it at and invokes the `mcp-in`
+The name misleads if you read it as a client. MCP Call speaks no protocol and opens no
+connection; it reaches into the MCP Server config node you point it at and invokes the MCP In
 nodes deployed alongside it, in-process. Everything a real client goes through — the HTTP route,
 the bearer token, the gates — is upstream of where it joins in.
 
-It exists for two things. Reusing a flow that already sits behind an `mcp-in` without wiring a
+It exists for two things. Reusing a flow that already sits behind an MCP In without wiring a
 parallel `link in` beside it — for plain flow-to-flow request/response with no MCP tool involved,
 Node-RED's built-in `link call` is the simpler answer. And asking a server what it holds: since
-every tool here is defined by your own `mcp-in` nodes, `{ "list": true }` is usually the only
+every tool here is defined by your own MCP In nodes, `{ "list": true }` is usually the only
 index of them there is.
 
 **Tool access does not apply on this path**, and that follows from where the node sits. The claim
 and scope gates guard the HTTP route and the token arriving on it, which this node never sees, so
 entering behind them means entering past them. That is deliberate: a flow node is already inside
 the trust boundary — whoever can edit flows can edit the tool — so a gate here would guard nothing
-while implying it guarded something. It does mean `mcp-call` must not be used to re-expose a gated
-tool to an outside caller; that gate is yours to reproduce. Admin tools are the exception and keep
-the route's rule: enabled on the server, enabled on the `mcp-call` node, **and** an admin claim on
-`msg.claims`.
+while implying it guarded something. It does mean MCP Call must not be used to re-expose a gated
+tool to an outside caller; that gate is yours to reproduce. The same holds for an **MCP Admin**
+node's tools, which are registered like any other: a flow that reaches them can change your flows.
 
-## Admin tools
+## Administering Node-RED (MCP Admin)
 
-Enable **Admin tools** on an `mcp-server` node to additionally expose two tools that operate
-on Node-RED's own Admin HTTP API, gated by a configurable JWT claim (default: `groups`
-contains `admin`):
+An **MCP Admin** node exposes Node-RED's own Admin API as MCP tools. It is a flow node, not a
+server option: whether this Node-RED can be administered over MCP is visible in the flow, and
+disabling or deleting the node takes the tools away. Its tools register on the **MCP Server** you
+choose exactly like `MCP In` tools and sit behind that server's gates. **Give it a server of its
+own** (say `path: nodered`): which clients may administer Node-RED then comes down to one resource
+at your identity provider.
 
-- **`get_flow`** — lists all flow tabs (id, label, node count), or returns the full JSON of
-  one tab when called with an `id`.
-- **`deploy_flow`** — creates or updates a flow tab.
+The tools come in groups, switched on the node. Read is on by default; everything that changes
+something is opt-in, and the optional **Write access** list (values of the server's access claim)
+restricts the changing tools further.
 
-## Configuring an `mcp-server` node
+| Group | Tools |
+|---|---|
+| Read | `list_flows`, `get_flow`, `get_node`, `find_nodes`, `get_context`, `get_runtime`, `validate`, `list_snapshots` |
+| Flows | `patch_nodes`, `add_nodes`, `remove_nodes`, `create_flow`, `delete_flow`, `set_flow_enabled`, `rollback` |
+| Test | `inject`, `get_debug` |
+| Context | `delete_context` |
 
-- **General**: name, `path` (→ registers `POST /mcp/<path>`), the public `Server URL` this
+**Writes change nodes, not tabs.** `patch_nodes` sets or unsets properties on the nodes it names,
+global config nodes included; everything it does not name is kept. Every write reads the flows
+with their revision, changes a copy, **validates** it, snapshots the deployed state and deploys
+with that revision (`Node-RED-Deployment-Type: nodes`, so only changed nodes restart). A deploy
+that happened in between — from the editor, say — makes the write fail rather than overwrite it.
+Reads answer the current `rev`; pass it back as `expected_rev` to have a write refused if anything
+changed since you looked, not only when the change itself collides. Every failure answers
+`{ ok: false, error }`, with `errors` added for validation and `conflict: true` for a stale revision.
+Validation refuses wires and links into nothing, references emptied or left dangling (a config
+node removed while still used, a patch that blanked one), nodes outside any flow, duplicate ids
+and types the runtime does not know. `dry_run` on any write reports what would change.
+
+**Snapshots and rollback.** The configuration as it was before each write is kept under
+`<userDir>/.mcp-admin/<node id>/` (50 by default). `rollback` restores one, after snapshotting the
+state it replaces. Snapshots never contain credentials: nodes that still exist keep theirs, a node
+recreated by a rollback comes back without them.
+
+**Secrets.** Credentials stay in Node-RED's credential store and are never served. Secrets kept
+elsewhere — plain node properties, context values a flow saved, URLs with a password or a token
+parameter — are answered as `«masked: N chars»` while **Mask secrets** is on (the default), matched
+by name (token, secret, password, api key, credential, cookie …). **Also mask** adds `type.property`
+entries no name gives away, such as `ical-config.url`. Writes refuse masked values, so a placeholder
+can never replace the real secret. A secret written into function code cannot be told from code;
+keep those in credentials or environment variables.
+
+**Testing.** `inject` presses an inject node's button, optionally with message properties of your
+own; `get_debug` returns what the debug sidebar received since — debug-node output, and warnings
+and errors raised by any node.
+
+**Outputs.** Two, for a flow to turn into a notification, a log or nothing — the node itself
+notifies no one. Both carry `msg.topic` `mcp-admin/<tool>`, and `sub` and `client` from the
+caller's token.
+
+1. **Changes**: one message per change, refused ones included —
+   `{ time, event, tool, instance, sub, client, summary, changed, rev, snapshot }`, with `event` one
+   of `deployed`, `rejected` (and a `reason`: `validation`, `conflict` or `own-server`), `injected`
+   or `context-deleted`. Reads send nothing here.
+2. **Every call**: one message per tool call, reads included —
+   `{ time, tool, instance, sub, client, args, ok, error, durationMs }`, with `args` summarized
+   (long strings cut, long arrays counted).
+
+**Several instances.** A client may hold these tools for more than one Node-RED. `Instance` and
+`Description` on the node say which one this is and what runs there; they open the instructions
+sent on connect, `get_runtime` reports them, and every answer that changes something names the
+instance it changed. `Instance` defaults to the host in the MCP Server node's `Server URL`.
+
+**Deliberately not offered:** installing or removing node modules; starting and stopping the
+flows, since stopping them stops the MCP server serving the tools and nothing could start them
+again from there; and changing the **MCP Server** the tools are served by — that would restart it
+mid-answer, and a mistake would lock every client out of the tools that could fix it. Do those in
+the editor.
+
+**The admin token.** The tools call this Node-RED's own Admin API with the **Admin token** set on
+the node, and Node-RED accepts it only if `settings.js` knows it. What the token is allowed to do
+there is what the tools can do. To set it up:
+
+1. Make up a long random token (`openssl rand -hex 32`) and give it to Node-RED as an environment
+   variable — `NODERED_ADMIN_API_TOKEN` below.
+2. In `settings.js`, add a `tokens` function to `adminAuth` that maps that token to a user of its
+   own, with only the permissions the groups you enabled need. The user is made up on the spot: it
+   needs no entry in `users`, so no one can log in to the editor as it.
+3. Restart Node-RED, and paste the same token into **Admin token** on the node.
+
+```js
+adminAuth: {
+    // ... your editor login ...
+    tokens: t => Promise.resolve(t === process.env.NODERED_ADMIN_API_TOKEN
+        ? { username: "mcp-admin", permissions: [
+            "flows.read", "nodes.read", "settings.read", "diagnostics.read", "context.read",
+            "projects.read",                  // Read: get_runtime names the active project
+            "flows.write",                    // Flows
+            "inject.write", "status.read",    // Test (status.read lets get_debug connect)
+            "context.write"                   // Context
+          ] }
+        : null)
+}
+```
+
+A token without a permission a tool needs gets an error naming that permission.
+
+## Configuring an MCP Server node
+
+- **General**: name, `path` (→ registers `POST /mcp/<path>`, or `POST /mcp` when empty), the public `Server URL` this
   Node-RED instance is reachable at, optional server name/instructions shown to the model, and
   an optional **hostname filter** (see below).
 - **Auth**: an OIDC `Identity provider` issuer URL (**required** — endpoints auto-discovered
@@ -100,13 +218,14 @@ contains `admin`):
   token bypasses authentication on the server's route wherever that is reachable from, grants no
   `groups` unless configured, and is named in the log at every start while set), and the
   `Access claim` / `Server access` gate (see below).
-- **Admin**: enable/disable admin tools, admin token (for the Node-RED Admin API), admin API
-  port, and the `Admin access` gate that additionally restricts just the admin tools.
 
 ### Access control
 
-**One claim name, many value lists.** `Access claim` on the Auth tab (default `groups`) names the
-single JWT claim every gate matches against. Every other authorization field is a comma-separated
+**One claim name, many value lists.** `Access claim` on the Auth tab names the single JWT claim
+every gate matches against. It defaults to `sub`, the user's id: the one claim every JWT access
+token carries ([RFC 9068 §2.2](https://www.rfc-editor.org/rfc/rfc9068.html#section-2.2)), where
+`groups` and its kind exist only if the provider puts them in the access token — and some, PocketID
+among them, cannot. Use `groups` (or a role claim) where your provider supplies it. Every other authorization field is a comma-separated
 **any-of** list of that claim's values — `media, ops` passes if the claim contains at least one of
 them. An empty list imposes no restriction.
 
@@ -118,21 +237,19 @@ nothing rather than matching by accident.
 
 | Field | Where | Restricts |
 |---|---|---|
-| `Server access` | mcp-server, Auth tab | every tool on this server |
-| `Tool access` | mcp-in | that one tool, additionally |
-| `Admin access` | mcp-server, Admin tab | `get_flow`/`deploy_flow`, additionally |
+| `Server access` | MCP Server, Auth tab | every tool on this server |
+| `Tool access` | MCP In | that one tool, additionally |
+| `Write access` | MCP Admin | that node's changing tools, additionally |
 
 **The lists are combined with AND.** Reaching a tool means clearing the server's list *and* that
-tool's own list. Admin tools are not a special case — their field is simply the tool list for
-`get_flow`/`deploy_flow`.
+tool's own list.
 
 ```
 Access claim: groups     Server access: staff
-tool A: (empty)   tool B: media   Admin access: admin
+tool A: (empty)   tool B: media
 
 groups=[staff]         → A
 groups=[staff, media]  → A, B
-groups=[staff, admin]  → A + get_flow, deploy_flow
 groups=[media]         → nothing            (server list not cleared)
 groups=[guest]         → nothing
 
@@ -167,12 +284,9 @@ Microsoft Entra and Okta. The field itself is a comma-separated any-of list. Emp
 never fills it in is unaffected; a configured scope the token does not carry is refused,
 including when the token has no scope claim at all.
 
-> **Upgrading:** the admin gate no longer has its own claim-name field — it matches against the
-> Auth tab's `Access claim` like everything else. If you had set a *different* claim name for
-> admin tools, move that value to the Auth tab or adjust the admin list accordingly. A value that
-> literally contains a comma is now read as a list rather than one literal string. The gate fields
-> were also relabelled (`Required claim`/`Required value` → `Access claim`/`Server access`/`Admin
-> access`); the underlying settings are unchanged, so existing flows keep working untouched.
+> **Upgrading from before 2.1:** a gate value that literally contains a comma is read as a list
+> rather than one literal string, and the gate fields were relabelled (`Required claim`/`Required
+> value` → `Access claim`/`Server access`); the underlying settings are unchanged.
 
 ### Authentication
 
@@ -198,13 +312,13 @@ server. The advertised version is intentionally pinned rather than echoing the c
 
 Off by default. When **Only serve requests for this hostname** is enabled, the node only answers
 requests whose `Host` header matches the hostname in its `Server URL`. This lets several
-`mcp-server` nodes share the *same* `path` on one Node-RED instance, each answering only its own
+MCP Server nodes share the *same* `path` on one Node-RED instance, each answering only its own
 virtual host — useful behind a reverse proxy that fronts multiple hostnames for one Node-RED
 backend. Leave it off for a single server, or when a reverse proxy rewrites the `Host` header.
 
 ### Reverse proxy
 
-Each `mcp-server` node is its own OAuth resource — unlike a single shared MCP endpoint, every
+Each MCP Server node is its own OAuth resource — unlike a single shared MCP endpoint, every
 instance registers **its own** discovery routes, scoped under its `path`. For a node with
 `path: docker` and `Server URL: https://mcp.example.com`, these three routes exist:
 
@@ -220,7 +334,7 @@ rather than a copy proxied through here.
 
 Both well-known forms are advertised because different MCP clients probe different ones —
 expose both. Since every instance's routes share the `/mcp/<path>` and `/.well-known/*/mcp/<path>`
-shapes, **one set of wildcard rules covers every current and future `mcp-server` node** (as long
+shapes, **one set of wildcard rules covers every current and future MCP Server node** (as long
 as they're all reachable through the same domain/upstream) — no reverse-proxy change needed when
 adding a new `path`. Example, using
 [Caddy](https://caddyserver.com/) via [caddy-docker-proxy](https://github.com/lucaslorentz/caddy-docker-proxy)
@@ -238,8 +352,13 @@ dropped, since nothing answers there any more. Leaving it in place is harmless �
 a 404 — but it no longer forwards to anything.
 
 
+A server with an empty `path` lives at `/mcp` itself — typical when it has a hostname of its own —
+and needs the bare forms as well: `/mcp`, `/mcp/.well-known/oauth-protected-resource` and
+`/.well-known/oauth-protected-resource/mcp`. Turn on hostname filtering for it, so it does not
+answer `/mcp` for every hostname the Node-RED serves.
+
 Node-RED itself 404s any path that isn't an actual registered route, so the wildcard doesn't
-expose anything beyond what each deployed `mcp-server` node already registers. If a `path`
+expose anything beyond what each deployed MCP Server node already registers. If a `path`
 needs to be reachable on a *different* domain than the others, give it its own `caddy_N` site
 block (or combine with [hostname filtering](#hostname-filtering) above).
 
@@ -267,11 +386,11 @@ block (or combine with [hostname filtering](#hostname-filtering) above).
 
 ## Examples
 
-See [`examples/`](examples/) for nine ready-to-import flows (Jellyfin, Calibre, Docker,
-Music Assistant, Radarr, iRobot/rest980, Overseerr, Sonarr, Spotify), each with its own
-`mcp-server` node (server description pre-filled, `Server URL`/`Identity provider` left
-blank for you to fill in) and `mcp-in`/`mcp-out` tools — a good reference for wiring up
-your own tools.
+See [`examples/`](examples/) for ready-to-import flows (Jellyfin, Calibre, Docker,
+Music Assistant, Radarr, iRobot/rest980, Overseerr, Sonarr, SL, Spotify), each with its own
+**MCP Server** node (server description pre-filled, `Server URL`/`Identity provider` left
+blank for you to fill in) and `MCP In`/`MCP Out` tools — a good reference for wiring up
+your own tools — plus one with an **MCP Admin** node and an **MCP Call**.
 
 ## Development
 

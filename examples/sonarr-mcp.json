@@ -9,7 +9,7 @@
 
   {
     "id": "snr-server",
-    "type": "mcp-server",
+    "type": "ftb-mcp-server",
     "name": "Sonarr",
     "path": "sonarr",
     "serverUrl": "",
@@ -29,7 +29,7 @@
   },
   {
     "id": "snr-in-series",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-sonarr-mcp",
     "name": "Get series",
     "mcpServer": "snr-server",
@@ -91,7 +91,7 @@
   },
   {
     "id": "snr-out-series",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-sonarr-mcp",
     "name": "",
     "mcpServer": "snr-server",
@@ -102,7 +102,7 @@
 
   {
     "id": "snr-in-episodes",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-sonarr-mcp",
     "name": "Get episodes",
     "mcpServer": "snr-server",
@@ -164,7 +164,7 @@
   },
   {
     "id": "snr-out-episodes",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-sonarr-mcp",
     "name": "",
     "mcpServer": "snr-server",
@@ -175,7 +175,7 @@
 
   {
     "id": "snr-in-calendar",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-sonarr-mcp",
     "name": "Get calendar",
     "mcpServer": "snr-server",
@@ -237,7 +237,7 @@
   },
   {
     "id": "snr-out-calendar",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-sonarr-mcp",
     "name": "",
     "mcpServer": "snr-server",
@@ -248,7 +248,7 @@
 
   {
     "id": "snr-in-queue",
-    "type": "mcp-in",
+    "type": "ftb-mcp-in",
     "z": "tab-sonarr-mcp",
     "name": "Get queue",
     "mcpServer": "snr-server",
@@ -310,7 +310,7 @@
   },
   {
     "id": "snr-out-queue",
-    "type": "mcp-out",
+    "type": "ftb-mcp-out",
     "z": "tab-sonarr-mcp",
     "name": "",
     "mcpServer": "snr-server",

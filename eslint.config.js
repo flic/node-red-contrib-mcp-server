@@ -18,11 +18,25 @@ const nodeGlobals = { ...globals.node };
 module.exports = [
     {
         // Runtime: what Node-RED loads. The reason this file exists.
-        files: ['nodes/**/*.js', 'lib/**/*.js'],
+        files: ['nodes/**/*.js', 'lib/**/*.js', 'plugins/**/*.js'],
         languageOptions: {
             ecmaVersion: 2022,
             sourceType: 'commonjs',
             globals: nodeGlobals
+        },
+        rules: {
+            'no-undef': 'error',
+            'no-unused-vars': ['warn', { args: 'none' }]
+        }
+    },
+    {
+        // resources/ is served to the editor as a plain <script> and required by the runtime and
+        // the tests, so it must be valid in both: a classic script, with either set of globals.
+        files: ['resources/**/*.js'],
+        languageOptions: {
+            ecmaVersion: 2022,
+            sourceType: 'script',
+            globals: { ...nodeGlobals, ...globals.browser }
         },
         rules: {
             'no-undef': 'error',

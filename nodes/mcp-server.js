@@ -5,7 +5,7 @@ const https  = require('https');
 const pkgVersion = require('../package.json').version;
 
 const { createMcpAuth }              = require('../lib/mcp-auth');
-const { createHttpGuards, hostFilter } = require('../lib/http-guards');
+const { createHttpGuards, hostFilter, hostRegistry } = require('../lib/http-guards');
 const { toolOk, respond, unknownTool } = require('../lib/tool-result');
 const { handleRpc }                  = require('../lib/mcp-rpc');
 const { requiredScopeChallenge, advertisedScopes,
@@ -100,7 +100,8 @@ module.exports = function (RED) {
         }
         // A bare /mcp answers for every hostname this Node-RED serves, and is the path other
         // packages' single-endpoint servers use too (hal2's event handler, for one). Allowed, but
-        // said, since the first deploy that collides would otherwise answer with someone else's.
+        // said: servers here step aside for one filtered on the same path, but a package that does
+        // not take part in the host registry below is not stepped aside for.
         if (!routePath && !expectedHost) {
             node.warn('Serving /mcp without hostname filtering: this server answers /mcp for every hostname '
                 + 'this Node-RED serves. Turn on "Only serve requests for this hostname" if another '
@@ -108,9 +109,14 @@ module.exports = function (RED) {
         }
 
         // One shared hostFilter instance, tagged with this node's id so removeRoute (above)
-        // can tell this node's routes apart from a sibling's on the same path.
-        const ownedHostFilter = hostFilter(expectedHost);
+        // can tell this node's routes apart from a sibling's on the same path. The registry makes
+        // a filtered server win its hostname whatever the order the routes were registered in;
+        // claimed for exactly the routes registered below, and released on close.
+        const registry = hostRegistry(RED.httpNode);
+        const ownedHostFilter = hostFilter(expectedHost, registry);
         ownedHostFilter._mcpOwner = node.id;
+        registry.claim(node.id, expectedHost,
+            resourceMetadataPaths.map(p => ['GET', p]).concat([['POST', mcpRoutePath]]));
 
         // The one claim name every gate on this server matches against — the server-wide list
         // below and each registered tool's own list. Everything else is values.
@@ -326,6 +332,7 @@ module.exports = function (RED) {
             auth.clearCache();
             for (const p of resourceMetadataPaths) { removeRoute(RED, 'get', p, node.id); }
             removeRoute(RED, 'post', mcpRoutePath, node.id);
+            registry.release(node.id);
         });
     }
 

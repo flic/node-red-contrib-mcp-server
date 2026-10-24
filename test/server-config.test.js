@@ -67,6 +67,54 @@ describe('MCP Server path', function () {
     });
 });
 
+describe('MCP Servers sharing a path', function () {
+    // Two server nodes on one router: an unfiltered one, and a filtered one that is restarted —
+    // which puts its routes last, behind the unfiltered one.
+    function twoServers() {
+        const stack = [];
+        const RED = {
+            nodes: { createNode(node, cfg) { node.id = cfg.id; }, registerType: (n, fn) => { RED.ctor = fn; } },
+            httpNode: { get: (p, ...chain) => stack.push({ m: 'GET', p, chain }),
+                        post: (p, ...chain) => stack.push({ m: 'POST', p, chain }), _router: { stack: [] } },
+            settings: { httpAdminRoot: '/' }
+        };
+        delete require.cache[require.resolve(SERVER)];
+        require(SERVER)(RED);
+        const start = cfg => {
+            const node = new EventEmitter();
+            node.status = () => {}; node.log = () => {}; node.warn = () => {}; node.error = () => {};
+            node.credentials = {};
+            RED.ctor.call(node, cfg);
+            return node;
+        };
+        // The first route on POST /mcp whose host filter lets the request through.
+        const answers = host => {
+            for (const r of stack) {
+                if (r.m !== 'POST' || r.p !== '/mcp' || r.dead) continue;
+                let arg = 'NOT_CALLED';
+                r.chain[0]({ headers: { host }, method: 'POST', route: { path: '/mcp' } }, {}, a => { arg = a; });
+                if (arg === undefined) return r.chain[0]._mcpOwner;
+            }
+            return null;
+        };
+        return { stack, start, answers };
+    }
+
+    it('answers each hostname from the right server, also after the filtered one restarts', function () {
+        const { stack, start, answers } = twoServers();
+        start({ id: 'admin', path: '', serverUrl: 'https://admin.example.com', filterHost: true });
+        const general = start({ id: 'general', path: '', serverUrl: 'https://mcp.example.com', filterHost: false });
+        assert.strictEqual(answers('admin.example.com'), 'admin');
+        assert.strictEqual(answers('mcp.example.com'), 'general');
+        // Restart the filtered server: its old routes go, new ones are added after the unfiltered.
+        stack.filter(r => r.chain[0]._mcpOwner === 'admin').forEach(r => { r.dead = true; });
+        start({ id: 'admin', path: '', serverUrl: 'https://admin.example.com', filterHost: true });
+        assert.strictEqual(answers('admin.example.com'), 'admin');
+        assert.strictEqual(answers('mcp.example.com'), 'general');
+        assert.ok(general);
+    });
+});
+
 describe('MCP Server instructions', function () {
     const deps = instructions => ({
         serverName: 's', serverVersion: '1', instructions, requiredClaim: 'sub', requiredValue: '',

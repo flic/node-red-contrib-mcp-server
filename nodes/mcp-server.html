@@ -123,10 +123,10 @@
 <script type="text/html" data-help-name="ftb-mcp-server">
     <p>Config node hosting a standalone Model Context Protocol (MCP) server. Registers a
     JSON-RPC endpoint at <code>POST /mcp/&lt;path&gt;</code> (<code>POST /mcp</code> with an empty
-    path) plus OAuth discovery/dynamic
-    client registration routes, so MCP clients (e.g. Claude) can authenticate and call the
-    tools defined by any <code>mcp-in</code>/<code>mcp-out</code> pair wired to this node.</p>
-    <p>Multiple <code>mcp-server</code> nodes can coexist — each gets its own path and its
+    path) plus protected-resource metadata pointing clients at your identity provider, so MCP
+    clients (e.g. Claude) can authenticate and call the tools defined by any
+    <b>MCP In</b>/<b>MCP Out</b> pair wired to this node.</p>
+    <p>Multiple MCP Server nodes can coexist — each gets its own path and its
     own independent auth configuration, so different integrations can be isolated from each
     other.</p>
     <p>To administer Node-RED itself over MCP, give an <b>MCP Admin</b> node a server of its own:

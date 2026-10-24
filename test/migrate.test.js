@@ -1,7 +1,7 @@
 'use strict';
 
 const assert = require('node:assert');
-const { LEGACY_TYPES, migrateFlows } = require('../resources/migrate');
+const { LEGACY_TYPES, migrateFlows, adminServers } = require('../resources/migrate');
 
 describe('resources/migrate', function () {
     it('renames every 2.x type to its ftb- counterpart and reports the ids', function () {
@@ -41,6 +41,16 @@ describe('resources/migrate', function () {
     it('does not resolve inherited names as legacy types', function () {
         const { changed } = migrateFlows([{ id: 'x', type: 'constructor' }, { id: 'y', type: '__proto__' }]);
         assert.deepStrictEqual(changed, []);
+    });
+
+    it('names the 2.x servers that had admin tools on, which the conversion takes away', function () {
+        assert.deepStrictEqual(adminServers([
+            { id: 'a', type: 'mcp-server', name: 'Calibre', adminToolsEnabled: true },
+            { id: 'b', type: 'mcp-server', path: 'sl', adminToolsEnabled: true },
+            { id: 'c', type: 'mcp-server', name: 'Seerr', adminToolsEnabled: false },
+            { id: 'd', type: 'ftb-mcp-server', name: 'New', adminToolsEnabled: true }
+        ]), ['Calibre', '/mcp/sl']);
+        assert.deepStrictEqual(adminServers(undefined), []);
     });
 
     it('maps exactly the four 2.x node types', function () {

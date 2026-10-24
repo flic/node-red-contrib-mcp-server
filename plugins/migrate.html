@@ -7,6 +7,8 @@
     // represents nodes whose type it has no definition for — which is what the legacy names are.
     var API_HEADERS = { 'Node-RED-API-Version': 'v2' };
     var notification = null;
+    // RED.notify renders HTML, and server names are the user's text.
+    var esc = function (t) { return $('<span>').text(t).html(); };
 
     function fail(message) {
         RED.notify('MCP: ' + message, { type: 'error', timeout: 10000 });
@@ -19,6 +21,7 @@
         }
         $.ajax({ url: 'flows', headers: API_HEADERS, dataType: 'json' }).done(function (current) {
             var result = window.ftbMcpMigrate.migrateFlows(current.flows);
+            var admin = window.ftbMcpMigrate.adminServers(current.flows);
             if (!result.changed.length) { if (notification) { notification.close(); } return; }
             $.ajax({
                 url        : 'flows',
@@ -30,9 +33,11 @@
                 data       : JSON.stringify({ rev: current.rev, flows: result.flows })
             }).done(function () {
                 if (notification) { notification.close(); }
-                RED.notify('MCP: converted ' + result.changed.length + ' node(s). Reloading the editor…',
-                    { type: 'success' });
-                setTimeout(function () { window.location.reload(); }, 1500);
+                RED.notify('MCP: converted ' + result.changed.length + ' node(s).'
+                    + (admin.length ? ' Admin tools (get_flow, deploy_flow) are gone from ' + esc(admin.join(', '))
+                        + ' — add an MCP Admin node for them.' : '') + ' Reloading the editor…',
+                    { type: 'success', timeout: admin.length ? 8000 : 3000 });
+                setTimeout(function () { window.location.reload(); }, admin.length ? 8000 : 1500);
             }).fail(function (xhr) {
                 fail(xhr.status === 409
                     ? 'the flows changed while converting. Reload the editor and try again.'
@@ -45,10 +50,14 @@
         $.ajax({ url: 'flows', headers: API_HEADERS, dataType: 'json' }).done(function (current) {
             var count = window.ftbMcpMigrate.migrateFlows(current.flows).changed.length;
             if (!count || notification) { return; }
+            var admin = window.ftbMcpMigrate.adminServers(current.flows);
             notification = RED.notify(
                 '<p><strong>MCP server 3.x</strong></p><p>' + count + ' node(s) use the 2.x type names ' +
                 '(mcp-server, mcp-in, mcp-out, mcp-call). They still run, but the editor cannot ' +
-                'edit them, and 4.0.0 removes the old names.</p>', {
+                'edit them, and 4.0.0 removes the old names.</p>' +
+                (admin.length ? '<p>Admin tools (get_flow, deploy_flow) are on for ' + esc(admin.join(', ')) +
+                    '. 3.x has no such option: converting removes them from that server. ' +
+                    'Node-RED is administered by the MCP Admin node now.</p>' : ''), {
                     type   : 'warning',
                     fixed  : true,
                     buttons: [

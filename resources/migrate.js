@@ -33,7 +33,17 @@
         return { flows: out, changed: changed };
     }
 
-    var api = { LEGACY_TYPES: LEGACY_TYPES, migrateFlows: migrateFlows };
+    // 2.x servers that had admin tools switched on. 3.0.0 has no such option — administration is
+    // the MCP Admin node — so their get_flow/deploy_flow go with the conversion. Named to the user
+    // at the moment they convert, where it can be acted on; the flag itself does not survive the
+    // editor's next deploy, which keeps only the fields a node type declares.
+    function adminServers(flows) {
+        return (flows || []).filter(function (n) {
+            return n && n.type === 'mcp-server' && n.adminToolsEnabled === true;
+        }).map(function (n) { return n.name || ('/mcp/' + (n.path || '')); });
+    }
+
+    var api = { LEGACY_TYPES: LEGACY_TYPES, migrateFlows: migrateFlows, adminServers: adminServers };
     if (typeof module !== 'undefined' && module.exports) { module.exports = api; }
     else { root.ftbMcpMigrate = api; }
 })(typeof window !== 'undefined' ? window : this);

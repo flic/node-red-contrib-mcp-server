@@ -12,7 +12,7 @@ const { requiredScopeChallenge, advertisedScopes,
         visibleTools,
         gateReadsClaim }             = require('../lib/claim-gate');
 const { buildProtectedResourceMetadata } = require('../lib/oauth-discovery');
-const { unsupportedKeywords } = require('../lib/schema');
+const { unsupportedKeywords, invalidPatterns } = require('../lib/schema');
 
 function httpGet(url, headers) {
     return new Promise((resolve, reject) => {
@@ -217,6 +217,11 @@ module.exports = function (RED) {
             if (unchecked.length) {
                 node.warn('MCP tool "' + name + '": the input schema uses ' + unchecked.join(', ')
                     + ', which argument validation does not check. Everything else in it is checked.');
+            }
+            const broken = validate ? invalidPatterns(schema) : [];
+            if (broken.length) {
+                node.warn('MCP tool "' + name + '": the input schema\'s pattern ' + broken.join(', ')
+                    + ' is not a valid regular expression, so every call naming that argument is refused. Fix the pattern.');
             }
             // Duplicate tool names are a silent conflict: the registry entry is overwritten but
             // BOTH mcp-in listeners keep firing, so a single call runs two flows and the first

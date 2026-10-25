@@ -172,6 +172,13 @@ describe('lib/mcp-rpc argument validation', function () {
         assert.deepStrictEqual(out.body.result.content, [{ type: 'text', text: 'ran with {"tmdbId":7}' }]);
     });
 
+    it('hands the flow an optional null as not sent, as the check counted it', async function () {
+        // A flow testing `=== undefined` would otherwise read the null as a value.
+        const out = await call({ tmdbId: 7, season: null }, { schema: { type: 'object', required: ['tmdbId'],
+            properties: { tmdbId: { type: 'integer' }, season: { type: 'integer' } } } });
+        assert.deepStrictEqual(out.body.result.content, [{ type: 'text', text: 'ran with {"tmdbId":7}' }]);
+    });
+
     it('lets a tool registered with validate: false take anything', async function () {
         const out = await call({ tmdbId: 'x' }, { validate: false });
         assert.ok(out.body.result.content[0].text.startsWith('ran with'));

@@ -60,6 +60,15 @@ describe('mcp-server callTool', function () {
         assert.deepStrictEqual(out.content, [{ type: 'text', text: 'hit' }]);
     });
 
+    it('returns a text answer as text, which is what mcp-out sends for an object payload', async function () {
+        const node = loadServer({});
+        node.registerMCPTool('count', 'Count', {}, 30, '', 'in1');
+        answerWith(node, 'count', '{"n":3}');
+
+        const out = await node.callTool('count', {}, null, {});
+        assert.deepStrictEqual([out.ok, out.text, out.content], [true, '{"n":3}', undefined]);
+    });
+
     it('answers an unknown name with -32601 rather than hanging', async function () {
         const out = await loadServer({}).callTool('nope', {}, null, {});
         assert.strictEqual(out.ok, false);

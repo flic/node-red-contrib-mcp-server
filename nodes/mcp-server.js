@@ -270,7 +270,9 @@ module.exports = function (RED) {
             try {
                 const content = await node.dispatchMCPCall(
                     toolName, entry.timeoutMs || 30000, args || {}, claims || null);
-                return respond({ content: content });
+                // As on the MCP route: mcp-out answers with a content array or with text, which
+                // for an object payload is its JSON — mcp-call parses that back.
+                return Array.isArray(content) ? respond({ content: content }) : toolOk(content);
             } catch (e) {
                 node.status({ fill: 'red', shape: 'dot', text: 'timeout' });
                 return toolOk(JSON.stringify({

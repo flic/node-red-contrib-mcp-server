@@ -42,7 +42,7 @@
         <small>Comma-separated values, matched against the <b>Access claim</b> set on the selected MCP Server (now <span id="mcp-admin-claim-name"><code>sub</code></span>; change it there). Required on top of the server's own <b>Server access</b> list for every tool that changes something; read tools need only the server's gate.</small>
     </div>
     <div class="form-row">
-        <label for="node-input-maskSecrets" style="width:auto"><i class="fa fa-eye-slash"></i> Mask secrets</label>
+        <label for="node-input-maskSecrets"><i class="fa fa-eye-slash"></i> Secrets</label>
         <input type="checkbox" id="node-input-maskSecrets" style="width:23px; margin:0">
         <label for="node-input-maskSecrets" style="margin:0; width:auto;"> Answer secrets as «masked: N chars»</label>
     </div>
@@ -169,6 +169,11 @@
         paletteLabel: 'MCP Admin',
         label  : function () { return this.name || (this.instanceName ? 'MCP Admin: ' + this.instanceName : 'MCP Admin'); },
         oneditprepare: function () {
+            // Fields that are on unless switched off: a node saved before one existed has no value,
+            // which the editor would show unchecked and then save as off.
+            $('#node-input-maskSecrets').prop('checked', this.maskSecrets !== false);
+            $('#node-input-groupRead').prop('checked', this.groupRead !== false);
+
             function updateClaimName() {
                 var server = RED.nodes.node($('#node-input-mcpServer').val());
                 var claim  = (server && server.requiredClaim) || 'sub';

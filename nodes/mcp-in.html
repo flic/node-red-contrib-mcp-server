@@ -28,7 +28,7 @@
         <input type="number" id="node-input-timeout" style="width:80px" min="1" value="30"> seconds
     </div>
     <div class="form-row">
-        <label for="node-input-validateArgs" style="width:auto"><i class="fa fa-check-square-o"></i> Validate</label>
+        <label for="node-input-validateArgs"><i class="fa fa-check-square-o"></i> Validate</label>
         <input type="checkbox" id="node-input-validateArgs" style="width:23px; margin:0">
         <label for="node-input-validateArgs" style="margin:0; width:auto;"> Refuse calls whose arguments do not match the parameters schema</label>
     </div>
@@ -49,7 +49,7 @@
     <hr style="margin:12px 0">
 
     <div class="form-row">
-        <label for="node-input-exposeClaims" style="width:auto"><i class="fa fa-id-card-o"></i> Expose JWT claims</label>
+        <label for="node-input-exposeClaims"><i class="fa fa-id-card-o"></i> JWT claims</label>
         <input type="checkbox" id="node-input-exposeClaims" style="width:23px; margin:0">
         <label for="node-input-exposeClaims" style="margin:0; width:auto;"> Set msg.jwtClaims with the verified JWT payload</label>
     </div>
@@ -118,6 +118,10 @@
         paletteLabel: 'MCP In',
         label     : function () { return this.name || this.toolName || 'MCP In'; },
         oneditprepare: function () {
+            // On unless switched off — also for a node saved before the field existed, which the
+            // editor would otherwise show unchecked, and save as off the next time it is opened.
+            $('#node-input-validateArgs').prop('checked', this.validateArgs !== false);
+
             // Show the selected server's actual claim name in the Tool access tip — the values
             // typed here are values *of that claim*, and it is configured on a different node.
             function updateClaimName() {

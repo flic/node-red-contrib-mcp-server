@@ -19,7 +19,9 @@ describe('lib/schema validateArgs', function () {
         const problems = validateArgs(seerrGetTv, { tmdbId: '../../settings/main' });
         assert.strictEqual(problems.length, 1);
         assert.ok(problems[0].startsWith('tmdbId must be an integer, got string'), problems[0]);
-        assert.ok(validateArgs(seerrGetTv, { tmdbId: 1.5 })[0].includes('integer'));
+        assert.strictEqual(validateArgs(seerrGetTv, { tmdbId: 1.5 })[0], 'tmdbId must be an integer, got 1.5');
+        assert.strictEqual(validateArgs(seerrGetTv, { tmdbId: true })[0], 'tmdbId must be an integer, got true');
+        assert.strictEqual(validateArgs(seerrGetTv, { tmdbId: [1] })[0], 'tmdbId must be an integer, got array');
     });
 
     it('names missing required arguments, wrong enums and wrong item types', function () {

@@ -351,7 +351,7 @@
     "name": "Request count",
     "mcpServer": "sr-server",
     "toolName": "seerr_request_count",
-    "description": "Count media requests by state, as Seerr counts them: total, by type (movie, tv), and by state (pending, approved, declined, processing, available).",
+    "description": "Count media requests as Seerr counts them: total, by type (movie, tv), and by state (pending, approved, declined, processing, available, completed). The states overlap — processing counts approved requests still downloading — so they do not add up to the total.",
     "inputSchema": "{\"type\":\"object\",\"properties\":{}}",
     "topic": "",
     "timeout": 15,
